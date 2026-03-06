@@ -1,0 +1,11 @@
+from __future__ import annotations
+from dataclasses import dataclass
+from pathlib import Path
+
+@dataclass
+class UIState:
+    root: Path | None = None
+    include_subfolders: bool = True
+    find_text: str = ""
+    replace_text: str = ""
+    move_by_ext: bool = True

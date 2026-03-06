@@ -1,0 +1,10 @@
+# Dracula palette (stable overrides)
+DR_BG = "#282a36"
+DR_PANEL = "#282a36"
+DR_SURFACE = "#1e1f29"
+DR_BORDER = "#44475a"
+DR_TEXT = "#f8f8f2"
+DR_MUTED = "#9aa0a6"
+DR_ACCENT = "#6272a4"
+DR_ACCENT_HOVER = "#7082b6"
+DR_PURPLE = "#bd93f9"

@@ -1,0 +1,5 @@
+[project]
+name = "bulkfolder"
+version = "0.1.0"
+description = "Bulk folder organizer and renamer"
+requires-python = ">=3.10"

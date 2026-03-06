@@ -1,0 +1,11 @@
+services:
+  bulkfolder:
+    build: .
+    container_name: bulkfolder
+    working_dir: /app
+    environment:
+      - PYTHONPATH=/app/src
+    volumes:
+      - ./src:/app/src
+      - ./data:/data
+    command: ["python", "-m", "bulkfolder.cli", "--help"]
