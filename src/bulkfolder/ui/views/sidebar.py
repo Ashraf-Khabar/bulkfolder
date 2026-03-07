@@ -13,7 +13,10 @@ class SidebarView(ctk.CTkFrame):
         self._expanded = True
         self._expanded_width = 280
         self._collapsed_width = 74
+        
+        # On force la taille et on empêche les widgets internes de redimensionner la barre.
         self.configure(width=self._expanded_width)
+        self.grid_propagate(False) 
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(99, weight=1)
@@ -46,12 +49,14 @@ class SidebarView(ctk.CTkFrame):
         self.pages_frame.grid(row=3, column=0, sticky="ew", padx=10, pady=(0, 12))
         self.pages_frame.grid_columnconfigure(0, weight=1)
 
-        # 100% English Labels
+        # Remplacement de 🗜️ par 🔓 (Cadenas ouvert) pour éviter le bug d'espacement Tkinter
         self._pages = [
             ("Organizer", "Organizer", "🏠"),
             ("Mass Renamer", "Renamer", "📝"),
             ("Folder Flattener", "Flattener", "📥"),
+            ("Archive Extractor", "Unzipper", "🔓"), 
             ("Date Organizer", "DateOrg", "📅"),
+            ("Empty Folders", "EmptyFolders", "🧹"), 
             ("Large Files", "LargeFiles", "📦"),
             ("Settings", "Settings", "⚙"),
             ("About", "About", "ℹ"),
@@ -61,7 +66,8 @@ class SidebarView(ctk.CTkFrame):
         for idx, (label, page_name, icon) in enumerate(self._pages):
             btn = ctk.CTkButton(
                 self.pages_frame,
-                text=label,
+                text=f"  {icon}   {label}",
+                anchor="w",
                 command=lambda p=page_name: self._on_page(p),
                 fg_color=DR_SURFACE,
                 hover_color=DR_BORDER,
@@ -79,32 +85,23 @@ class SidebarView(ctk.CTkFrame):
 
     def set_collapsed(self, collapsed: bool) -> None:
         self._expanded = not collapsed
-
+        
+        # Bascule instantanée pour une sensation de fluidité absolue
         if collapsed:
             self.configure(width=self._collapsed_width)
             self.title.configure(text="")
-
             for w in self._collapse_hide:
-                try:
-                    w.grid_remove()
-                except Exception:
-                    pass
-
+                try: w.grid_remove()
+                except Exception: pass
             for btn, (_, _, icon) in zip(self._page_buttons, self._pages):
-                btn.configure(text=icon, width=52)
-
-            self.pages_frame.grid_configure(padx=10)
+                # Icône seule, centrée parfaitement
+                btn.configure(text=icon, anchor="center")
         else:
             self.configure(width=self._expanded_width)
             self.title.configure(text=" BulkFolder")
-
             for w in self._collapse_hide:
-                try:
-                    w.grid()
-                except Exception:
-                    pass
-
-            for btn, (label, _, _) in zip(self._page_buttons, self._pages):
-                btn.configure(text=label, width=0)
-
-            self.pages_frame.grid_configure(padx=10)
+                try: w.grid()
+                except Exception: pass
+            for btn, (label, _, icon) in zip(self._page_buttons, self._pages):
+                # Retour du texte et alignement à gauche
+                btn.configure(text=f"  {icon}   {label}", anchor="w")
