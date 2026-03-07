@@ -14,3 +14,5 @@ class UIState:
     flattener_root: Path | None = None
     dateorg_root: Path | None = None
     empty_folders_root: Path | None = None
+    unzipper_root: Path | None = None
+    pdf_root: Path | None = None

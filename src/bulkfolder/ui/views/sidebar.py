@@ -4,7 +4,6 @@ from PIL import Image
 import customtkinter as ctk
 from ..theme import DR_PANEL, DR_TEXT, DR_MUTED, DR_BORDER, DR_SURFACE
 
-
 class SidebarView(ctk.CTkFrame):
     def __init__(self, master, on_page, logo_path=None):
         super().__init__(master, corner_radius=0, fg_color=DR_PANEL)
@@ -14,7 +13,6 @@ class SidebarView(ctk.CTkFrame):
         self._expanded_width = 280
         self._collapsed_width = 74
         
-        # On force la taille et on empêche les widgets internes de redimensionner la barre.
         self.configure(width=self._expanded_width)
         self.grid_propagate(False) 
 
@@ -49,12 +47,12 @@ class SidebarView(ctk.CTkFrame):
         self.pages_frame.grid(row=3, column=0, sticky="ew", padx=10, pady=(0, 12))
         self.pages_frame.grid_columnconfigure(0, weight=1)
 
-        # Remplacement de 🗜️ par 🔓 (Cadenas ouvert) pour éviter le bug d'espacement Tkinter
         self._pages = [
             ("Organizer", "Organizer", "🏠"),
             ("Mass Renamer", "Renamer", "📝"),
             ("Folder Flattener", "Flattener", "📥"),
             ("Archive Extractor", "Unzipper", "🔓"), 
+            ("Image to PDF", "PdfConverter", "📄"), # Le nouveau bouton PDF !
             ("Date Organizer", "DateOrg", "📅"),
             ("Empty Folders", "EmptyFolders", "🧹"), 
             ("Large Files", "LargeFiles", "📦"),
@@ -86,7 +84,6 @@ class SidebarView(ctk.CTkFrame):
     def set_collapsed(self, collapsed: bool) -> None:
         self._expanded = not collapsed
         
-        # Bascule instantanée pour une sensation de fluidité absolue
         if collapsed:
             self.configure(width=self._collapsed_width)
             self.title.configure(text="")
@@ -94,7 +91,6 @@ class SidebarView(ctk.CTkFrame):
                 try: w.grid_remove()
                 except Exception: pass
             for btn, (_, _, icon) in zip(self._page_buttons, self._pages):
-                # Icône seule, centrée parfaitement
                 btn.configure(text=icon, anchor="center")
         else:
             self.configure(width=self._expanded_width)
@@ -103,5 +99,4 @@ class SidebarView(ctk.CTkFrame):
                 try: w.grid()
                 except Exception: pass
             for btn, (label, _, icon) in zip(self._page_buttons, self._pages):
-                # Retour du texte et alignement à gauche
                 btn.configure(text=f"  {icon}   {label}", anchor="w")

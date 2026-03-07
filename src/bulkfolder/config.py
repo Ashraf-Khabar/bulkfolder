@@ -6,7 +6,7 @@ CONFIG_PATH = Path.home() / ".bulkfolder_config.json"
 
 @dataclass
 class AppSettings:
-    appearance_mode: str = "System"
+    theme_name: str = "Dracula"  # Nouveau paramètre !
     ui_scaling: str = "100%"
     autoscan_on_folder_select: bool = True
     ask_confirmations: bool = True
@@ -19,7 +19,6 @@ def load_settings() -> AppSettings:
     try:
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
-            # Filtrer les clés qui n'existent pas dans AppSettings (compatibilité ascendante)
             valid_keys = {k for k in AppSettings.__dataclass_fields__}
             filtered_data = {k: v for k, v in data.items() if k in valid_keys}
         return AppSettings(**filtered_data)

@@ -5,7 +5,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox
-
+import sys
 import customtkinter as ctk
 
 from ..scanner import scan_folder
@@ -15,6 +15,8 @@ from ..executor import apply_plan as exec_apply_plan
 from ..undo import undo_last as exec_undo_last
 from ..duplicates import find_duplicates
 from ..config import save_settings
+from ..pdf_converter import convert_images_to_pdf
+import webbrowser
 
 DEFAULT_MAPPING = {
     "jpg": "Images", "jpeg": "Images", "png": "Images", "gif": "Images", "webp": "Images",
@@ -188,6 +190,9 @@ def unzipper_refresh(app) -> None:
     app.unzipper_page.render_archives(archives)
     app.set_status(f"Archives: {len(archives)} found.")
 
+# (Remplacez les fonctions existantes correspondantes dans actions.py)
+
+# ---------- Archive Extractor (Unzipper) actions ----------
 def unzipper_extract_selected(app, paths: list[Path]) -> None:
     if not paths: return
     delete_after = app.unzipper_page.switch_delete.get()
@@ -205,7 +210,6 @@ def unzipper_extract_selected(app, paths: list[Path]) -> None:
             try:
                 safe_name = path.name.replace(path.suffix, "")
                 extract_dir = path.parent / safe_name
-                
                 counter = 1
                 base_dir = extract_dir
                 while extract_dir.exists():
@@ -221,8 +225,93 @@ def unzipper_extract_selected(app, paths: list[Path]) -> None:
             except Exception as e:
                 app.log(f"Failed to extract {path.name}: {e}", level="ERROR")
 
+        messagebox.showinfo("Success", f"Successfully extracted {success_count} archives!")
         app.log(f"Successfully extracted {success_count}/{len(paths)} archives.", level="SUCCESS")
         unzipper_refresh(app)
+
+# ---------- Image to PDF actions ----------
+def pdf_convert_selected(app, paths: list[Path]) -> None:
+    if not paths: return
+    delete_after = app.pdf_page.switch_delete.get()
+    
+    msg = f"Convert {len(paths)} image(s) to PDF?"
+    if delete_after: msg += "\nOriginal images will be DELETED."
+
+    if _ask_confirm(app, "Convert to PDF", msg):
+        app.set_status("Converting... Please wait.")
+        app.update() 
+        
+        success, errors = convert_images_to_pdf(paths, delete_original=delete_after)
+        
+        if errors:
+            messagebox.showwarning("Partial Success", f"Converted: {success}\nFailed: {len(errors)}\nCheck logs for details.")
+            for err in errors:
+                app.log(f"PDF Error: {err}", level="ERROR")
+        else:
+            messagebox.showinfo("Success", f"Successfully converted {success} images to PDF!")
+            
+        app.log(f"Successfully converted {success}/{len(paths)} images to PDF.", level="SUCCESS")
+        pdf_refresh(app)
+
+# ---------- Large Files actions ----------
+def large_files_delete_selected(app, paths: list[Path]) -> None:
+    if not paths: return
+    if _ask_confirm(app, "Delete", f"Permanently delete {len(paths)} selected file(s)?\nThis action cannot be undone."):
+        deleted = 0
+        for path in paths:
+            try:
+                path.unlink()
+                deleted += 1
+                if getattr(app, "large_files_scan", None):
+                    app.large_files_scan = [i for i in app.large_files_scan if i.path != path]
+            except Exception as e:
+                app.log(f"Error deleting {path.name}: {e}", level="ERROR")
+        
+        messagebox.showinfo("Cleaned", f"Successfully deleted {deleted} files!")
+        app.log(f"Deleted {deleted} files.", level="WARN")
+        large_files_refresh(app, float(app.large_files_page.min_mb_var.get() or 0))
+
+# ---------- Image to PDF actions ----------
+
+def pdf_choose_folder(app) -> None:
+    path = filedialog.askdirectory()
+    if path:
+        app.ui_state.pdf_root = Path(path)
+        app.pdf_page.set_folder(str(path))
+        app.pdf_page.render_files([])
+
+def pdf_refresh(app) -> None:
+    root = getattr(app.ui_state, "pdf_root", None)
+    if not root:
+        messagebox.showwarning("PDF Converter", "Please choose a folder first.")
+        return
+
+    app.set_status("Scanning for images...")
+    allowed_exts = {'.jpg', '.jpeg', '.png', '.webp', '.bmp'}
+    scanned = scan_folder(root, include_subfolders=True)
+    
+    images = [item.path for item in scanned if item.is_file and item.path.suffix.lower() in allowed_exts]
+    app.pdf_page.render_files(images)
+    app.set_status(f"Images: {len(images)} found.")
+
+def pdf_convert_selected(app, paths: list[Path]) -> None:
+    if not paths: return
+    delete_after = app.pdf_page.switch_delete.get()
+    
+    msg = f"Convert {len(paths)} image(s) to PDF?"
+    if delete_after: msg += "\nOriginal images will be DELETED."
+
+    if _ask_confirm(app, "Convert to PDF", msg):
+        app.set_status("Converting... Please wait.")
+        app.update() 
+        
+        success, errors = convert_images_to_pdf(paths, delete_original=delete_after)
+        
+        for err in errors:
+            app.log(f"PDF Error: {err}", level="ERROR")
+            
+        app.log(f"Successfully converted {success}/{len(paths)} images to PDF.", level="SUCCESS")
+        pdf_refresh(app)
 
 
 # ---------- Large Files actions ----------
@@ -452,13 +541,11 @@ def empty_folders_delete_selected(app, paths: list[Path]) -> None:
 # ---------- Settings actions ----------
 
 def settings_save(app) -> None:
+    old_theme = app.settings.theme_name  # On mémorise l'ancien thème
     new_settings = app.settings_page.read_settings_from_form()
     app.settings = new_settings
     
     app.set_status("Applying settings...")
-    
-    mode = new_settings.appearance_mode.lower()
-    ctk.set_appearance_mode("system" if mode == "system" else mode)
     
     try:
         scale_val = float(new_settings.ui_scaling.replace("%", "")) / 100.0
@@ -470,3 +557,23 @@ def settings_save(app) -> None:
     save_settings(new_settings)
     app.set_status("Settings saved.")
     app.log("Settings saved. UI updated.", level="SUCCESS")
+
+    # Si le thème a changé, on affiche un message d'avertissement puis on redémarre automatiquement
+    if new_settings.theme_name != old_theme:
+        # Affiche simplement le message "Warning"
+        messagebox.showwarning(
+            "Restart Required", 
+            f"Theme set to '{new_settings.theme_name}'.\n\nThe application will now restart automatically to apply the new colors."
+        )
+        # Redémarrage automatique direct après que l'utilisateur a cliqué sur "OK"
+        os.execl(sys.executable, sys.executable, *sys.argv)
+
+
+# ---------- About & Links actions ----------
+
+def open_github(app, url: str) -> None:
+    if url:
+        app.log(f"Opening browser: {url}", level="INFO")
+        webbrowser.open(url)
+    else:
+        messagebox.showerror("Error", "No repository URL found in configuration.")

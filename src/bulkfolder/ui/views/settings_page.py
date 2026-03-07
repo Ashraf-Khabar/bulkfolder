@@ -1,9 +1,8 @@
 from __future__ import annotations
-
 import customtkinter as ctk
 
 from ...config import AppSettings
-from ..theme import DR_BG, DR_SURFACE, DR_BORDER, DR_TEXT, DR_MUTED, DR_ACCENT, DR_ACCENT_HOVER
+from ..theme import DR_BG, DR_SURFACE, DR_BORDER, DR_TEXT, DR_MUTED, DR_ACCENT, DR_ACCENT_HOVER, THEMES
 
 
 class SettingsPage(ctk.CTkFrame):
@@ -16,7 +15,6 @@ class SettingsPage(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        # Header
         header = ctk.CTkFrame(self, fg_color="transparent")
         header.grid(row=0, column=0, sticky="ew", padx=18, pady=(0, 10))
         header.grid_columnconfigure(0, weight=1)
@@ -38,9 +36,10 @@ class SettingsPage(ctk.CTkFrame):
         card_app.grid_columnconfigure(1, weight=1)
         current_row += 1
 
-        ctk.CTkLabel(card_app, text="Theme Mode", text_color=DR_MUTED).grid(row=0, column=0, sticky="w", padx=16, pady=(16, 10))
-        self.theme_var = ctk.StringVar(value=settings.appearance_mode)
-        self.theme_menu = ctk.CTkOptionMenu(card_app, values=["System", "Dark", "Light"], variable=self.theme_var)
+        ctk.CTkLabel(card_app, text="Color Theme", text_color=DR_MUTED).grid(row=0, column=0, sticky="w", padx=16, pady=(16, 10))
+        self.theme_var = ctk.StringVar(value=settings.theme_name)
+        # On liste dynamiquement tous les thèmes
+        self.theme_menu = ctk.CTkOptionMenu(card_app, values=list(THEMES.keys()), variable=self.theme_var)
         self.theme_menu.grid(row=0, column=1, sticky="w", padx=16, pady=(16, 10))
 
         ctk.CTkLabel(card_app, text="UI Scaling (Zoom)", text_color=DR_MUTED).grid(row=1, column=0, sticky="w", padx=16, pady=(0, 16))
@@ -58,9 +57,7 @@ class SettingsPage(ctk.CTkFrame):
 
         ctk.CTkLabel(card_gen, text="Default Startup Page", text_color=DR_MUTED).grid(row=0, column=0, sticky="w", padx=16, pady=(16, 10))
         self.default_page_var = ctk.StringVar(value=settings.default_page)
-        
-        # AJOUT DE "Unzipper" DANS LA LISTE ICI :
-        self.default_page_menu = ctk.CTkOptionMenu(card_gen, values=["Organizer", "Renamer", "Flattener", "Unzipper", "DateOrg", "EmptyFolders", "LargeFiles"], variable=self.default_page_var)
+        self.default_page_menu = ctk.CTkOptionMenu(card_gen, values=["Organizer", "Renamer", "Flattener", "Unzipper", "PdfConverter", "DateOrg", "EmptyFolders", "LargeFiles"], variable=self.default_page_var)
         self.default_page_menu.grid(row=0, column=1, sticky="w", padx=16, pady=(16, 10))
 
         self.autoscan_var = ctk.BooleanVar(value=settings.autoscan_on_folder_select)
@@ -99,13 +96,11 @@ class SettingsPage(ctk.CTkFrame):
         lbl.grid(row=row, column=0, sticky="w", padx=12, pady=(10, 8))
 
     def read_settings_from_form(self) -> AppSettings:
-        try:
-            min_kb = int(self.min_dup_var.get().strip())
-        except Exception:
-            min_kb = 1
+        try: min_kb = int(self.min_dup_var.get().strip())
+        except Exception: min_kb = 1
 
         return AppSettings(
-            appearance_mode=self.theme_var.get(),
+            theme_name=self.theme_var.get(),
             ui_scaling=self.scaling_var.get(),
             autoscan_on_folder_select=bool(self.autoscan_var.get()),
             ask_confirmations=bool(self.confirm_var.get()),

@@ -1,0 +1,88 @@
+# Thème : Tokyo Night
+DR_BG = "#1a1b26"
+DR_PANEL = "#16161e"
+DR_SURFACE = "#24283b"
+DR_BORDER = "#414868"
+DR_TEXT = "#c0caf5"
+DR_MUTED = "#565f89"
+DR_ACCENT = "#7aa2f7"
+DR_ACCENT_HOVER = "#8db0f8"
+DR_PURPLE = "#bb9af7"
+
+
+
+# Thème : Catppuccin Mocha
+DR_BG = "#1e1e2e"
+DR_PANEL = "#181825"
+DR_SURFACE = "#313244"
+DR_BORDER = "#45475a"
+DR_TEXT = "#cdd6f4"
+DR_MUTED = "#a6adc8"
+DR_ACCENT = "#89b4fa"
+DR_ACCENT_HOVER = "#b4befe"
+DR_PURPLE = "#cba6f7"
+
+
+
+# Thème : Obsidian Minimal
+DR_BG = "#0a0a0a"
+DR_PANEL = "#000000"
+DR_SURFACE = "#111111"
+DR_BORDER = "#333333"
+DR_TEXT = "#ededed"
+DR_MUTED = "#888888"
+DR_ACCENT = "#0070f3"
+DR_ACCENT_HOVER = "#3291ff"
+DR_PURPLE = "#7928ca"
+
+
+
+# Thème : Nord
+DR_BG = "#2E3440"
+DR_PANEL = "#242933"
+DR_SURFACE = "#3B4252"
+DR_BORDER = "#4C566A"
+DR_TEXT = "#ECEFF4"
+DR_MUTED = "#96A0B1"
+DR_ACCENT = "#5E81AC"
+DR_ACCENT_HOVER = "#81A1C1"
+DR_PURPLE = "#B48EAD"
+
+
+
+# Thème : Rosé Pine
+DR_BG = "#191724"
+DR_PANEL = "#12101B"
+DR_SURFACE = "#1F1D2E"
+DR_BORDER = "#26233A"
+DR_TEXT = "#E0DEF4"
+DR_MUTED = "#908CAA"
+DR_ACCENT = "#31748F"
+DR_ACCENT_HOVER = "#9CCFD8"
+DR_PURPLE = "#C4A7E7"
+
+
+
+# Thème : Gruvbox Material
+DR_BG = "#282828"
+DR_PANEL = "#1D2021"
+DR_SURFACE = "#32302F"
+DR_BORDER = "#504945"
+DR_TEXT = "#EBDBB2"
+DR_MUTED = "#A89984"
+DR_ACCENT = "#458588"
+DR_ACCENT_HOVER = "#83A598"
+DR_PURPLE = "#D3869B"
+
+
+
+# Thème : Midnight Executive
+DR_BG = "#0F1419"
+DR_PANEL = "#0B0E14"
+DR_SURFACE = "#171D24"
+DR_BORDER = "#2B3640"
+DR_TEXT = "#E6EBF0"
+DR_MUTED = "#7A8C9E"
+DR_ACCENT = "#C69F68"       # Accent Champagne/Or mat
+DR_ACCENT_HOVER = "#E0BC84" # Or plus clair au survol
+DR_PURPLE = "#8E729E"       # Mauve fumé

@@ -21,12 +21,15 @@ from .views.duplicates import DuplicatesView
 from .views.organizer_panel import OrganizerPanel
 from .views.renamer_page import RenamerPage    
 from .views.flattener_page import FlattenerPage  
-from .views.unzipper_page import UnzipperPage    # Import Unzipper
+from .views.unzipper_page import UnzipperPage
+from .views.pdf_page import PdfPage              
 from .views.dateorg_page import DateOrgPage
 from .views.empty_folders_page import EmptyFoldersPage
 from .views.settings_page import SettingsPage
 from .views.large_files_page import LargeFilesPage
 
+from .views.about_page import AboutPage
+from ..info import get_project_info
 
 class SplashScreen(ctk.CTkToplevel):
     def __init__(self, master, logo_path):
@@ -67,10 +70,8 @@ class App(ctk.CTk):
         self.withdraw()
         self.settings: AppSettings = load_settings()
 
-        mode = (self.settings.appearance_mode or "dark").lower()
-        if mode not in {"dark", "light", "system"}:
-            mode = "dark"
-        ctk.set_appearance_mode(mode)
+        # On force CustomTkinter en Dark, nos thèmes dynamiques s'occupent des vraies couleurs
+        ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
         
         try:
@@ -133,12 +134,13 @@ class App(ctk.CTk):
         self.pages["Organizer"] = self._build_page_organizer(self.page_container)
         self.pages["Renamer"] = self._build_page_renamer(self.page_container)
         self.pages["Flattener"] = self._build_page_flattener(self.page_container)
-        self.pages["Unzipper"] = self._build_page_unzipper(self.page_container) # Intégration Unzipper
+        self.pages["Unzipper"] = self._build_page_unzipper(self.page_container)
+        self.pages["PdfConverter"] = self._build_page_pdf(self.page_container) 
         self.pages["DateOrg"] = self._build_page_dateorg(self.page_container)
         self.pages["EmptyFolders"] = self._build_page_empty_folders(self.page_container)
         self.pages["LargeFiles"] = self._build_page_large_files(self.page_container)
         self.pages["Settings"] = self._build_page_settings(self.page_container)
-        self.pages["About"] = self._build_page_placeholder(self.page_container, "About", "BulkFolder — your safe bulk organizer.")
+        self.pages["About"] = self._build_page_about(self.page_container)
 
         self._current_page = ""
         start_page = self.settings.default_page
@@ -242,6 +244,15 @@ class App(ctk.CTk):
         )
         return self.unzipper_page
 
+    def _build_page_pdf(self, parent) -> ctk.CTkFrame:
+        self.pdf_page = PdfPage(
+            parent,
+            on_choose_folder=lambda: actions.pdf_choose_folder(self),
+            on_refresh=lambda: actions.pdf_refresh(self),
+            on_convert=lambda paths: actions.pdf_convert_selected(self, paths),
+        )
+        return self.pdf_page
+
     def _build_page_dateorg(self, parent) -> ctk.CTkFrame:
         self.dateorg_page = DateOrgPage(
             parent,
@@ -268,6 +279,17 @@ class App(ctk.CTk):
             on_delete_selected=lambda paths: actions.large_files_delete_selected(self, paths),
         )
         return self.large_files_page
+
+    def _build_page_about(self, parent) -> ctk.CTkFrame:
+        # On lit le XML une fois au lancement
+        info = get_project_info()
+        
+        self.about_page = AboutPage(
+            parent,
+            project_info=info,
+            on_open_github=lambda url: actions.open_github(self, url)
+        )
+        return self.about_page
 
     def _build_page_settings(self, parent) -> ctk.CTkFrame:
         self.settings_page = SettingsPage(parent, settings=self.settings, on_save=lambda: actions.settings_save(self))
