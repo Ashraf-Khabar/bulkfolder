@@ -6,7 +6,7 @@
   <br>
   <a href="Bulk folder"><img src="./src/assets/logo.png" alt="Bulk folder logo"></a>
   <br>
-  ROBOT RUNNER
+  Bulk folder
   <br>
 </h1>
 
@@ -118,5 +118,6 @@ Upon the very first launch, BulkFolder will automatically generate its own custo
 
 ## License
 This project is licensed under the terms of the LICENSE file included in the repository.
+
 
 
