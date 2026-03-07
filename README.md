@@ -2,6 +2,10 @@
 
 **BulkFolder** is a desktop software application designed to organize, clean up, and mass-rename your files quickly and, most importantly, **safely**. 
 
+<center>
+<img src="./src/assets/logo.png" alt="Bulk folder logo">
+</center>
+
 Whether you have a chaotic "Downloads" folder, thousands of vacation photos to sort by date, or complex nested directories to clean up, BulkFolder centralizes all the necessary tools in a modern and intuitive interface (powered by CustomTkinter with a dark Dracula theme).
 
 ---
