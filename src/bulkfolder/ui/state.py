@@ -13,3 +13,4 @@ class UIState:
     renamer_root: Path | None = None
     flattener_root: Path | None = None
     dateorg_root: Path | None = None
+    empty_folders_root: Path | None = None

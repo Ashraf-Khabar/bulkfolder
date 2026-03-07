@@ -21,7 +21,9 @@ from .views.duplicates import DuplicatesView
 from .views.organizer_panel import OrganizerPanel
 from .views.renamer_page import RenamerPage    
 from .views.flattener_page import FlattenerPage  
-from .views.dateorg_page import DateOrgPage      # Import Date Organizer
+from .views.unzipper_page import UnzipperPage    # Import Unzipper
+from .views.dateorg_page import DateOrgPage
+from .views.empty_folders_page import EmptyFoldersPage
 from .views.settings_page import SettingsPage
 from .views.large_files_page import LargeFilesPage
 
@@ -51,7 +53,7 @@ class SplashScreen(ctk.CTkToplevel):
 
         ctk.CTkLabel(inner, text="BulkFolder", font=ctk.CTkFont(size=26, weight="bold"), text_color=DR_TEXT).pack()
         ctk.CTkLabel(inner, text="Organize & Rename safely", font=ctk.CTkFont(size=13), text_color=DR_MUTED).pack(pady=(0, 20))
-        ctk.CTkLabel(inner, text="Chargement en cours...", font=ctk.CTkFont(size=12), text_color=DR_MUTED).pack(pady=(0, 5))
+        ctk.CTkLabel(inner, text="Loading...", font=ctk.CTkFont(size=12), text_color=DR_MUTED).pack(pady=(0, 5))
 
         self.pb = ctk.CTkProgressBar(inner, width=220, progress_color=DR_PURPLE, fg_color=DR_BORDER)
         self.pb.pack(pady=(5, 0))
@@ -70,6 +72,13 @@ class App(ctk.CTk):
             mode = "dark"
         ctk.set_appearance_mode(mode)
         ctk.set_default_color_theme("blue")
+        
+        try:
+            scale_val = float(self.settings.ui_scaling.replace("%", "")) / 100.0
+            ctk.set_widget_scaling(scale_val)
+            ctk.set_window_scaling(scale_val)
+        except Exception:
+            pass
 
         self.title("BulkFolder")
         self.geometry("1200x720")
@@ -98,7 +107,7 @@ class App(ctk.CTk):
         self.large_files_scan = None
         self.renamer_plan = []  
         self.flattener_plan = []
-        self.dateorg_plan = [] # Nouvel état DateOrg
+        self.dateorg_plan = [] 
 
         self.grid_columnconfigure(0, weight=0)
         self.grid_columnconfigure(1, weight=1)
@@ -124,7 +133,9 @@ class App(ctk.CTk):
         self.pages["Organizer"] = self._build_page_organizer(self.page_container)
         self.pages["Renamer"] = self._build_page_renamer(self.page_container)
         self.pages["Flattener"] = self._build_page_flattener(self.page_container)
-        self.pages["DateOrg"] = self._build_page_dateorg(self.page_container) # Intégration DateOrg
+        self.pages["Unzipper"] = self._build_page_unzipper(self.page_container) # Intégration Unzipper
+        self.pages["DateOrg"] = self._build_page_dateorg(self.page_container)
+        self.pages["EmptyFolders"] = self._build_page_empty_folders(self.page_container)
         self.pages["LargeFiles"] = self._build_page_large_files(self.page_container)
         self.pages["Settings"] = self._build_page_settings(self.page_container)
         self.pages["About"] = self._build_page_placeholder(self.page_container, "About", "BulkFolder — your safe bulk organizer.")
@@ -222,6 +233,15 @@ class App(ctk.CTk):
         )
         return self.flattener_page
 
+    def _build_page_unzipper(self, parent) -> ctk.CTkFrame:
+        self.unzipper_page = UnzipperPage(
+            parent,
+            on_choose_folder=lambda: actions.unzipper_choose_folder(self),
+            on_refresh=lambda: actions.unzipper_refresh(self),
+            on_extract_selected=lambda paths: actions.unzipper_extract_selected(self, paths),
+        )
+        return self.unzipper_page
+
     def _build_page_dateorg(self, parent) -> ctk.CTkFrame:
         self.dateorg_page = DateOrgPage(
             parent,
@@ -230,6 +250,15 @@ class App(ctk.CTk):
             on_apply=lambda: actions.dateorg_apply(self),
         )
         return self.dateorg_page
+
+    def _build_page_empty_folders(self, parent) -> ctk.CTkFrame:
+        self.empty_folders_page = EmptyFoldersPage(
+            parent,
+            on_choose_folder=lambda: actions.empty_folders_choose_folder(self),
+            on_refresh=lambda: actions.empty_folders_refresh(self),
+            on_delete_selected=lambda paths: actions.empty_folders_delete_selected(self, paths),
+        )
+        return self.empty_folders_page
 
     def _build_page_large_files(self, parent) -> ctk.CTkFrame:
         self.large_files_page = LargeFilesPage(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox
@@ -22,6 +23,11 @@ DEFAULT_MAPPING = {
     "mp3": "Audio", "wav": "Audio", "mp4": "Video", "mov": "Video",
 }
 
+def _ask_confirm(app, title: str, message: str) -> bool:
+    if not getattr(app.settings, "ask_confirmations", True):
+        return True 
+    return messagebox.askyesno(title, message)
+
 # ---------- Organizer actions ----------
 
 def choose_folder(app) -> None:
@@ -42,7 +48,8 @@ def toggle_move_by_ext(app, enabled: bool) -> None:
     app.ui_state.move_by_ext = enabled
 
 def scan_and_plan(app) -> None:
-    if not app.ui_state.root:
+    root = getattr(app.ui_state, "root", None)
+    if not root:
         messagebox.showwarning("BulkFolder", "Please choose a folder first.")
         return
     app.ui_state.find_text = app.organizer_panel.get_find_text().strip()
@@ -74,7 +81,7 @@ def apply_plan(app) -> None:
     if app.last_plan.has_conflicts:
         messagebox.showerror("BulkFolder", "Plan has conflicts.")
         return
-    if messagebox.askyesno("BulkFolder", "Apply changes?"):
+    if _ask_confirm(app, "BulkFolder", "Apply changes?"):
         try:
             n = exec_apply_plan(app.last_plan, allow_conflicts=False)
             app.set_status("Applied.")
@@ -83,8 +90,9 @@ def apply_plan(app) -> None:
             messagebox.showerror("BulkFolder", f"Apply failed:\n{e}")
 
 def undo_last_ops(app) -> None:
-    if not app.ui_state.root: return
-    if messagebox.askyesno("BulkFolder", "Undo the last applied operations?"):
+    root = getattr(app.ui_state, "root", None)
+    if not root: return
+    if _ask_confirm(app, "BulkFolder", "Undo the last applied operations?"):
         try:
             n = exec_undo_last(app.ui_state.root)
             scan_and_plan(app)
@@ -92,7 +100,8 @@ def undo_last_ops(app) -> None:
             messagebox.showerror("BulkFolder", f"Undo failed:\n{e}")
 
 def find_duplicates_action(app) -> None:
-    if not app.ui_state.root: return
+    root = getattr(app.ui_state, "root", None)
+    if not root: return
     min_kb = int(app.settings.duplicate_min_size_kb) if getattr(app, "settings", None) else 1
     scanned = app.last_scan or scan_folder(app.ui_state.root, include_subfolders=app.ui_state.include_subfolders)
     app.last_scan = scanned
@@ -113,8 +122,11 @@ def flattener_choose_folder(app) -> None:
         app.flattener_plan = []
 
 def flattener_preview(app) -> None:
-    root = app.ui_state.flattener_root
-    if not root: return
+    root = getattr(app.ui_state, "flattener_root", None)
+    if not root:
+        messagebox.showwarning("Folder Flattener", "Please choose a folder first.")
+        return
+        
     scanned = scan_folder(root, include_subfolders=True)
     app.flattener_plan = []
     preview_list = []
@@ -136,19 +148,81 @@ def flattener_preview(app) -> None:
 def flattener_apply(app) -> None:
     plan = getattr(app, "flattener_plan", [])
     if not plan: return
-    if messagebox.askyesno("Folder Flattener", f"Extract {len(plan)} files?"):
+    if _ask_confirm(app, "Folder Flattener", f"Extract {len(plan)} files?"):
         for old_path, new_path in plan:
             try: old_path.rename(new_path)
             except Exception: pass
         if app.flattener_page.switch_delete.get():
-            root = app.ui_state.flattener_root
-            dirs = sorted([d for d in root.rglob('*') if d.is_dir()], key=lambda x: len(x.parts), reverse=True)
-            for d in dirs:
-                try:
-                    if not any(d.iterdir()): d.rmdir()
-                except Exception: pass
+            root = getattr(app.ui_state, "flattener_root", None)
+            if root:
+                dirs = sorted([d for d in root.rglob('*') if d.is_dir()], key=lambda x: len(x.parts), reverse=True)
+                for d in dirs:
+                    try:
+                        if not any(d.iterdir()): d.rmdir()
+                    except Exception: pass
         app.flattener_page.clear_preview()
         app.flattener_plan = []
+
+
+# ---------- Archive Extractor (Unzipper) actions ----------
+
+def unzipper_choose_folder(app) -> None:
+    path = filedialog.askdirectory()
+    if path:
+        app.ui_state.unzipper_root = Path(path)
+        app.unzipper_page.set_folder(str(path))
+        app.unzipper_page.render_archives([])
+
+def unzipper_refresh(app) -> None:
+    root = getattr(app.ui_state, "unzipper_root", None)
+    if not root:
+        messagebox.showwarning("Archive Extractor", "Please choose a folder first.")
+        return
+
+    app.set_status("Scanning for archives...")
+    allowed_exts = {'.zip', '.tar', '.gz', '.tgz', '.bz2', '.xz'}
+    scanned = scan_folder(root, include_subfolders=True)
+    
+    archives = [item.path for item in scanned if item.is_file and item.path.suffix.lower() in allowed_exts]
+
+    app.unzipper_page.render_archives(archives)
+    app.set_status(f"Archives: {len(archives)} found.")
+
+def unzipper_extract_selected(app, paths: list[Path]) -> None:
+    if not paths: return
+    delete_after = app.unzipper_page.switch_delete.get()
+    
+    msg = f"Extract {len(paths)} archive(s)?"
+    if delete_after:
+        msg += "\nOriginal archives will be DELETED after successful extraction."
+
+    if _ask_confirm(app, "Extract Archives", msg):
+        app.set_status("Extracting... Please wait.")
+        app.update() 
+        
+        success_count = 0
+        for path in paths:
+            try:
+                safe_name = path.name.replace(path.suffix, "")
+                extract_dir = path.parent / safe_name
+                
+                counter = 1
+                base_dir = extract_dir
+                while extract_dir.exists():
+                    extract_dir = path.parent / f"{base_dir.name}_{counter}"
+                    counter += 1
+                    
+                extract_dir.mkdir(parents=True, exist_ok=True)
+                shutil.unpack_archive(str(path), str(extract_dir))
+                success_count += 1
+                
+                if delete_after:
+                    path.unlink()
+            except Exception as e:
+                app.log(f"Failed to extract {path.name}: {e}", level="ERROR")
+
+        app.log(f"Successfully extracted {success_count}/{len(paths)} archives.", level="SUCCESS")
+        unzipper_refresh(app)
 
 
 # ---------- Large Files actions ----------
@@ -162,17 +236,22 @@ def large_files_choose_folder(app) -> None:
         app.large_files_page.render_files([])
 
 def large_files_refresh(app, min_mb: float) -> None:
-    root = app.ui_state.large_files_root
-    if not root: return
+    root = getattr(app.ui_state, "large_files_root", None)
+    if not root:
+        messagebox.showwarning("Large Files", "Please choose a folder first.")
+        return
+    
+    app.set_status("Scanning for large files...")
     if getattr(app, "large_files_scan", None) is None:
         app.large_files_scan = scan_folder(root, include_subfolders=True)
+    
     min_bytes = min_mb * 1024 * 1024
     large_files = sorted([(i.path, i.size) for i in app.large_files_scan if i.is_file and i.size >= min_bytes], key=lambda x: x[1], reverse=True)
     app.large_files_page.render_files(large_files)
 
 def large_files_delete_selected(app, paths: list[Path]) -> None:
     if not paths: return
-    if messagebox.askyesno("Delete", f"Permanently delete {len(paths)} selected file(s)?\nThis action cannot be undone."):
+    if _ask_confirm(app, "Delete", f"Permanently delete {len(paths)} selected file(s)?\nThis action cannot be undone."):
         deleted = 0
         for path in paths:
             try:
@@ -197,8 +276,11 @@ def renamer_choose_folder(app) -> None:
         app.renamer_plan = []
 
 def renamer_preview(app) -> None:
-    root = app.ui_state.renamer_root
-    if not root: return
+    root = getattr(app.ui_state, "renamer_root", None)
+    if not root:
+        messagebox.showwarning("Mass Renamer", "Please choose a folder first.")
+        return
+
     prefix = app.renamer_page.entry_prefix.get().strip()
     suffix = app.renamer_page.entry_suffix.get().strip()
     add_num = app.renamer_page.switch_num.get()
@@ -229,7 +311,7 @@ def renamer_preview(app) -> None:
 def renamer_apply(app) -> None:
     plan = getattr(app, "renamer_plan", [])
     if not plan: return
-    if messagebox.askyesno("Mass Renamer", f"Apply new names to {len(plan)} files?"):
+    if _ask_confirm(app, "Mass Renamer", f"Apply new names to {len(plan)} files?"):
         for old_path, new_path in plan:
             try:
                 if not new_path.exists(): old_path.rename(new_path)
@@ -249,7 +331,7 @@ def dateorg_choose_folder(app) -> None:
         app.dateorg_plan = []
 
 def dateorg_preview(app) -> None:
-    root = app.ui_state.dateorg_root
+    root = getattr(app.ui_state, "dateorg_root", None)
     if not root:
         messagebox.showwarning("Date Organizer", "Please choose a folder first.")
         return
@@ -275,7 +357,6 @@ def dateorg_preview(app) -> None:
             dest_dir = root / folder_name
             new_path = dest_dir / item.path.name
             
-            # Handle name collision
             counter = 1
             while new_path.exists() or new_path in [p[1] for p in app.dateorg_plan]:
                 new_path = dest_dir / f"{item.path.stem}_{counter}{item.path.suffix}"
@@ -293,7 +374,7 @@ def dateorg_apply(app) -> None:
     plan = getattr(app, "dateorg_plan", [])
     if not plan: return
 
-    if messagebox.askyesno("Date Organizer", f"Organize {len(plan)} files by date?"):
+    if _ask_confirm(app, "Date Organizer", f"Organize {len(plan)} files by date?"):
         applied = 0
         for old_path, new_path in plan:
             try:
@@ -307,11 +388,85 @@ def dateorg_apply(app) -> None:
         app.dateorg_page.clear_preview()
         app.dateorg_plan = []
 
+
+# ---------- Empty Folders Cleaner actions ----------
+
+def empty_folders_choose_folder(app) -> None:
+    path = filedialog.askdirectory()
+    if path:
+        app.ui_state.empty_folders_root = Path(path)
+        app.empty_folders_page.set_folder(str(path))
+        app.empty_folders_page.render_folders([])
+
+def empty_folders_refresh(app) -> None:
+    root = getattr(app.ui_state, "empty_folders_root", None)
+    if not root:
+        messagebox.showwarning("Empty Folders Cleaner", "Please choose a folder first.")
+        return
+        
+    app.set_status("Scanning for empty folders...")
+    
+    empty_dirs = []
+    ignored_files = {'.ds_store', 'thumbs.db', 'desktop.ini'}
+    
+    dirs = sorted([d for d in root.rglob('*') if d.is_dir()], key=lambda x: len(x.parts), reverse=True)
+    virtual_empty = set()
+    
+    for d in dirs:
+        is_empty = True
+        try:
+            for item in d.iterdir():
+                if item.is_file() and item.name.lower() not in ignored_files:
+                    is_empty = False
+                    break
+                if item.is_dir() and item not in virtual_empty:
+                    is_empty = False
+                    break
+                    
+            if is_empty:
+                virtual_empty.add(d)
+                empty_dirs.append(d)
+        except Exception:
+            pass
+
+    empty_dirs.reverse()
+    app.empty_folders_page.render_folders(empty_dirs)
+    app.set_status(f"Empty Folders: {len(empty_dirs)} found.")
+
+def empty_folders_delete_selected(app, paths: list[Path]) -> None:
+    if not paths: return
+    if _ask_confirm(app, "Delete", f"Delete {len(paths)} empty folder(s)?"):
+        deleted = 0
+        paths.sort(key=lambda x: len(x.parts), reverse=True)
+        for path in paths:
+            try:
+                shutil.rmtree(path)
+                deleted += 1
+            except Exception as e:
+                app.log(f"Error deleting folder {path.name}: {e}", level="ERROR")
+                
+        app.log(f"Cleaned {deleted} empty folders.", level="SUCCESS")
+        empty_folders_refresh(app)
+
+
 # ---------- Settings actions ----------
 
 def settings_save(app) -> None:
     new_settings = app.settings_page.read_settings_from_form()
     app.settings = new_settings
-    mode = new_settings.appearance_mode
+    
+    app.set_status("Applying settings...")
+    
+    mode = new_settings.appearance_mode.lower()
     ctk.set_appearance_mode("system" if mode == "system" else mode)
+    
+    try:
+        scale_val = float(new_settings.ui_scaling.replace("%", "")) / 100.0
+        ctk.set_widget_scaling(scale_val)
+        ctk.set_window_scaling(scale_val)
+    except Exception:
+        pass
+
     save_settings(new_settings)
+    app.set_status("Settings saved.")
+    app.log("Settings saved. UI updated.", level="SUCCESS")
