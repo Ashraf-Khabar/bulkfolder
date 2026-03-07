@@ -4,7 +4,8 @@ from ..theme import DR_SURFACE, DR_BORDER, DR_TEXT, DR_MUTED
 
 
 class TopbarView(ctk.CTkFrame):
-    def __init__(self, master, on_toggle_theme, on_toggle_sidebar):
+    # Suppression de on_toggle_theme des arguments
+    def __init__(self, master, on_toggle_sidebar):
         super().__init__(
             master,
             corner_radius=16,
@@ -38,18 +39,7 @@ class TopbarView(ctk.CTkFrame):
         self.status_lbl = ctk.CTkLabel(self, text="—", text_color=DR_MUTED)
         self.status_lbl.grid(row=0, column=2, sticky="w", padx=10, pady=14)
 
-        self.theme_btn = ctk.CTkButton(
-            self,
-            text="Toggle theme",
-            width=130,
-            command=on_toggle_theme,
-            fg_color=DR_SURFACE,
-            hover_color=DR_BORDER,
-            text_color=DR_TEXT,
-            border_color=DR_BORDER,
-            border_width=1,
-        )
-        self.theme_btn.grid(row=0, column=3, sticky="e", padx=18, pady=12)
+        # Le bouton de changement de thème a été supprimé d'ici
 
     def set_status(self, s: str) -> None:
         self.status_lbl.configure(text=s)

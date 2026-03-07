@@ -1,7 +1,11 @@
 from __future__ import annotations
+import sys
 import customtkinter as ctk
 
-from .theme import DR_BG, DR_TEXT, DR_MUTED, DR_SURFACE, DR_BORDER
+from pathlib import Path
+from PIL import Image, ImageTk, ImageDraw
+
+from .theme import DR_BG, DR_TEXT, DR_MUTED, DR_SURFACE, DR_BORDER, DR_PURPLE
 from .state import UIState
 from . import actions
 
@@ -15,18 +19,52 @@ from .views.preview import PreviewView
 from .views.logs import LogsView
 from .views.duplicates import DuplicatesView
 from .views.organizer_panel import OrganizerPanel
-from .views.presets_page import PresetsPage
+from .views.renamer_page import RenamerPage    
+from .views.flattener_page import FlattenerPage  
+from .views.dateorg_page import DateOrgPage      # Import Date Organizer
 from .views.settings_page import SettingsPage
+from .views.large_files_page import LargeFilesPage
+
+
+class SplashScreen(ctk.CTkToplevel):
+    def __init__(self, master, logo_path):
+        super().__init__(master)
+        self.overrideredirect(True)
+        self.attributes("-topmost", True)
+        self.configure(fg_color=DR_BG)
+
+        width, height = 340, 380
+        x = (self.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.winfo_screenheight() // 2) - (height // 2)
+        self.geometry(f"{width}x{height}+{x}+{y}")
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+
+        inner = ctk.CTkFrame(self, fg_color="transparent")
+        inner.grid(row=0, column=0)
+
+        if logo_path and logo_path.exists():
+            img = Image.open(logo_path)
+            self.photo = ctk.CTkImage(light_image=img, dark_image=img, size=(120, 120))
+            ctk.CTkLabel(inner, text="", image=self.photo).pack(pady=(0, 20))
+
+        ctk.CTkLabel(inner, text="BulkFolder", font=ctk.CTkFont(size=26, weight="bold"), text_color=DR_TEXT).pack()
+        ctk.CTkLabel(inner, text="Organize & Rename safely", font=ctk.CTkFont(size=13), text_color=DR_MUTED).pack(pady=(0, 20))
+        ctk.CTkLabel(inner, text="Chargement en cours...", font=ctk.CTkFont(size=12), text_color=DR_MUTED).pack(pady=(0, 5))
+
+        self.pb = ctk.CTkProgressBar(inner, width=220, progress_color=DR_PURPLE, fg_color=DR_BORDER)
+        self.pb.pack(pady=(5, 0))
+        self.pb.set(0)
+        self.pb.start()
 
 
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-
-        # Load settings early
+        self.withdraw()
         self.settings: AppSettings = load_settings()
 
-        # Apply appearance
         mode = (self.settings.appearance_mode or "dark").lower()
         if mode not in {"dark", "light", "system"}:
             mode = "dark"
@@ -38,61 +76,98 @@ class App(ctk.CTk):
         self.minsize(1020, 640)
         self.configure(fg_color=DR_BG)
 
+        self.logo_path = Path(__file__).resolve().parent.parent.parent / "assets" / "logo.png"
+        self._ensure_logo_exists(self.logo_path)
+
+        if self.logo_path.exists():
+            img = Image.open(self.logo_path)
+            photo = ImageTk.PhotoImage(img)
+            self.wm_iconphoto(True, photo)
+            self.iconphoto(True, photo)
+            if sys.platform.startswith("win"):
+                ico_path = self.logo_path.with_suffix(".ico")
+                if ico_path.exists():
+                    self.iconbitmap(str(ico_path))
+
+        self.splash = SplashScreen(self, self.logo_path)
+        self.splash.update()
+
         self.ui_state = UIState()
         self.last_plan = None
         self.last_scan = None
+        self.large_files_scan = None
+        self.renamer_plan = []  
+        self.flattener_plan = []
+        self.dateorg_plan = [] # Nouvel état DateOrg
 
         self.grid_columnconfigure(0, weight=0)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        # Sidebar = Pages only
-        self.sidebar_view = SidebarView(self, on_page=self.switch_page)
+        self.sidebar_view = SidebarView(self, on_page=self.switch_page, logo_path=self.logo_path)
         self.sidebar_view.grid(row=0, column=0, sticky="nsw")
 
-        # Main
         self.main = ctk.CTkFrame(self, corner_radius=0, fg_color=DR_BG)
         self.main.grid(row=0, column=1, sticky="nsew")
         self.main.grid_columnconfigure(0, weight=1)
         self.main.grid_rowconfigure(1, weight=1)
 
-        self.topbar_view = TopbarView(
-            self.main,
-            on_toggle_theme=self.toggle_theme,
-            on_toggle_sidebar=self.toggle_sidebar,
-        )
+        self.topbar_view = TopbarView(self.main, on_toggle_sidebar=self.toggle_sidebar)
         self.topbar_view.grid(row=0, column=0, sticky="ew", padx=18, pady=(18, 8))
 
-        # Container for pages
         self.page_container = ctk.CTkFrame(self.main, corner_radius=0, fg_color=DR_BG)
         self.page_container.grid(row=1, column=0, sticky="nsew")
         self.page_container.grid_columnconfigure(0, weight=1)
         self.page_container.grid_rowconfigure(0, weight=1)
 
         self.pages: dict[str, ctk.CTkFrame] = {}
-
         self.pages["Organizer"] = self._build_page_organizer(self.page_container)
-        self.pages["Presets"] = self._build_page_presets(self.page_container)
-        self.pages["LargeFiles"] = self._build_page_placeholder(self.page_container, "Large files", "Coming soon: find + move big files.")
+        self.pages["Renamer"] = self._build_page_renamer(self.page_container)
+        self.pages["Flattener"] = self._build_page_flattener(self.page_container)
+        self.pages["DateOrg"] = self._build_page_dateorg(self.page_container) # Intégration DateOrg
+        self.pages["LargeFiles"] = self._build_page_large_files(self.page_container)
         self.pages["Settings"] = self._build_page_settings(self.page_container)
         self.pages["About"] = self._build_page_placeholder(self.page_container, "About", "BulkFolder — your safe bulk organizer.")
 
         self._current_page = ""
-
-        # start page from settings
-        start_page = self.settings.default_page if self.settings.default_page in self.pages else "Organizer"
+        start_page = self.settings.default_page
+        if start_page not in self.pages:
+            start_page = "Organizer"
         self.switch_page(start_page)
 
         self.log("App started.", level="DEBUG")
         self.set_status("Ready.")
+        self.after(2500, self._show_main_window)
 
-    # -------------------------
-    # Page builders
-    # -------------------------
+    @staticmethod
+    def _ensure_logo_exists(png_path: Path):
+        ico_path = png_path.with_suffix(".ico")
+        if png_path.exists() and ico_path.exists(): return
+        try:
+            size = 256
+            img = Image.new("RGBA", (size, size), (255, 255, 255, 0))
+            draw = ImageDraw.Draw(img)
+            bg_color, folder_back, folder_front = (40, 42, 54, 255), (98, 114, 164, 255), (189, 147, 249, 255)
+            draw.ellipse([(10, 10), (246, 246)], fill=bg_color)
+            draw.rounded_rectangle([(64, 70), (130, 110)], radius=8, fill=folder_back)
+            draw.rounded_rectangle([(64, 90), (192, 180)], radius=12, fill=folder_back)
+            draw.rounded_rectangle([(48, 110), (208, 190)], radius=12, fill=folder_front)
+            png_path.parent.mkdir(parents=True, exist_ok=True)
+            img.save(png_path, format="PNG")
+            img.save(ico_path, format="ICO")
+        except Exception: pass
+
+    def _show_main_window(self):
+        try:
+            self.splash.pb.stop()
+            self.splash.destroy()
+        except: pass
+        self.deiconify()
+
     def _build_page_organizer(self, parent) -> ctk.CTkFrame:
         frame = ctk.CTkFrame(parent, corner_radius=0, fg_color=DR_BG)
-        frame.grid_columnconfigure(0, weight=0)   # left panel
-        frame.grid_columnconfigure(1, weight=1)   # main content
+        frame.grid_columnconfigure(0, weight=0)
+        frame.grid_columnconfigure(1, weight=1)
         frame.grid_rowconfigure(0, weight=1)
 
         self.organizer_panel = OrganizerPanel(
@@ -119,100 +194,86 @@ class App(ctk.CTk):
         self.tabs = ctk.CTkTabview(right, fg_color=DR_BG)
         self.tabs.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
 
-        tab_dash = self.tabs.add("Dashboard")
-        tab_preview = self.tabs.add("Preview")
-        tab_dups = self.tabs.add("Duplicates")
-        tab_logs = self.tabs.add("Logs")
-
-        self.dashboard_view = DashboardView(tab_dash)
+        self.dashboard_view = DashboardView(self.tabs.add("Dashboard"))
         self.dashboard_view.pack(fill="both", expand=True)
-
-        self.preview_view = PreviewView(tab_preview)
+        self.preview_view = PreviewView(self.tabs.add("Preview"))
         self.preview_view.pack(fill="both", expand=True)
-
-        self.duplicates_view = DuplicatesView(tab_dups)
+        self.duplicates_view = DuplicatesView(self.tabs.add("Duplicates"))
         self.duplicates_view.pack(fill="both", expand=True)
-
-        self.logs_view = LogsView(tab_logs)
+        self.logs_view = LogsView(self.tabs.add("Logs"))
         self.logs_view.pack(fill="both", expand=True)
-
         return frame
 
-    def _build_page_presets(self, parent) -> ctk.CTkFrame:
-        self.presets_page = PresetsPage(
+    def _build_page_renamer(self, parent) -> ctk.CTkFrame:
+        self.renamer_page = RenamerPage(
             parent,
-            on_refresh=lambda: actions.presets_refresh(self),
-            on_apply=lambda: actions.presets_apply_selected(self),
-            on_save=lambda: actions.presets_save_current(self),
-            on_delete=lambda: actions.presets_delete_selected(self),
+            on_choose_folder=lambda: actions.renamer_choose_folder(self),
+            on_preview=lambda: actions.renamer_preview(self),
+            on_apply=lambda: actions.renamer_apply(self),
         )
-        return self.presets_page
+        return self.renamer_page
+
+    def _build_page_flattener(self, parent) -> ctk.CTkFrame:
+        self.flattener_page = FlattenerPage(
+            parent,
+            on_choose_folder=lambda: actions.flattener_choose_folder(self),
+            on_preview=lambda: actions.flattener_preview(self),
+            on_apply=lambda: actions.flattener_apply(self),
+        )
+        return self.flattener_page
+
+    def _build_page_dateorg(self, parent) -> ctk.CTkFrame:
+        self.dateorg_page = DateOrgPage(
+            parent,
+            on_choose_folder=lambda: actions.dateorg_choose_folder(self),
+            on_preview=lambda: actions.dateorg_preview(self),
+            on_apply=lambda: actions.dateorg_apply(self),
+        )
+        return self.dateorg_page
+
+    def _build_page_large_files(self, parent) -> ctk.CTkFrame:
+        self.large_files_page = LargeFilesPage(
+            parent,
+            on_choose_folder=lambda: actions.large_files_choose_folder(self),
+            on_refresh=lambda min_mb: actions.large_files_refresh(self, min_mb),
+            on_delete_selected=lambda paths: actions.large_files_delete_selected(self, paths),
+        )
+        return self.large_files_page
 
     def _build_page_settings(self, parent) -> ctk.CTkFrame:
-        self.settings_page = SettingsPage(
-            parent,
-            settings=self.settings,
-            on_save=lambda: actions.settings_save(self),
-        )
+        self.settings_page = SettingsPage(parent, settings=self.settings, on_save=lambda: actions.settings_save(self))
         return self.settings_page
 
     def _build_page_placeholder(self, parent, title: str, subtitle: str) -> ctk.CTkFrame:
         frame = ctk.CTkFrame(parent, corner_radius=16, fg_color=DR_SURFACE, border_color=DR_BORDER, border_width=1)
         frame.grid_columnconfigure(0, weight=1)
         frame.grid_rowconfigure(0, weight=1)
-
         inner = ctk.CTkFrame(frame, fg_color="transparent")
         inner.grid(row=0, column=0, sticky="nsew", padx=24, pady=24)
-
         ctk.CTkLabel(inner, text=title, font=ctk.CTkFont(size=20, weight="bold"), text_color=DR_TEXT).pack(anchor="w")
         ctk.CTkLabel(inner, text=subtitle, font=ctk.CTkFont(size=12), text_color=DR_MUTED).pack(anchor="w", pady=(8, 0))
-
         return frame
 
-    # -------------------------
-    # Page switching
-    # -------------------------
     def switch_page(self, page_name: str) -> None:
-        if page_name not in self.pages:
-            return
-
-        if self._current_page:
-            self.pages[self._current_page].grid_forget()
-
-        page = self.pages[page_name]
-        page.grid(row=0, column=0, sticky="nsew")
+        if page_name not in self.pages: return
+        if self._current_page: self.pages[self._current_page].grid_forget()
+        self.pages[page_name].grid(row=0, column=0, sticky="nsew")
         self._current_page = page_name
-
-        title = "Organizer" if page_name == "Organizer" else page_name
-        self.topbar_view.set_title(title)
+        self.topbar_view.set_title(page_name if page_name != "Organizer" else "Organizer")
 
     def toggle_sidebar(self) -> None:
         self.sidebar_view.toggle()
 
-    # -------------------------
-    # status / logs
-    # -------------------------
     def set_status(self, s: str) -> None:
         self.topbar_view.set_status(s)
 
     def log(self, s: str, level: str = "INFO") -> None:
-        if hasattr(self, "logs_view"):
-            self.logs_view.log(s, level=level)
-
-    # -------------------------
-    # theme (quick toggle)
-    # -------------------------
-    def toggle_theme(self) -> None:
-        current = ctk.get_appearance_mode().lower()
-        ctk.set_appearance_mode("light" if current == "dark" else "dark")
+        if hasattr(self, "logs_view"): self.logs_view.log(s, level=level)
 
     @staticmethod
     def human_bytes(n: int) -> str:
         step = 1024.0
-        units = ["B", "KB", "MB", "GB", "TB"]
-        v = float(n)
-        for u in units:
-            if v < step:
-                return f"{v:.1f} {u}"
-            v /= step
-        return f"{v:.1f} PB"
+        for u in ["B", "KB", "MB", "GB", "TB"]:
+            if n < step: return f"{n:.1f} {u}"
+            n /= step
+        return f"{n:.1f} PB"

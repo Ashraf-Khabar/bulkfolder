@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from PIL import Image
 import customtkinter as ctk
 from ..theme import DR_PANEL, DR_TEXT, DR_MUTED, DR_BORDER, DR_SURFACE
 
 
 class SidebarView(ctk.CTkFrame):
-    def __init__(self, master, on_page):
+    def __init__(self, master, on_page, logo_path=None):
         super().__init__(master, corner_radius=0, fg_color=DR_PANEL)
 
         self._on_page = on_page
@@ -17,7 +18,22 @@ class SidebarView(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(99, weight=1)
 
-        self.title = ctk.CTkLabel(self, text="BulkFolder", font=ctk.CTkFont(size=20, weight="bold"), text_color=DR_TEXT)
+        self.logo_img = None
+        if logo_path and logo_path.exists():
+            self.logo_img = ctk.CTkImage(
+                light_image=Image.open(logo_path),
+                dark_image=Image.open(logo_path),
+                size=(32, 32)
+            )
+
+        self.title = ctk.CTkLabel(
+            self, 
+            text=" BulkFolder", 
+            image=self.logo_img, 
+            compound="left",
+            font=ctk.CTkFont(size=20, weight="bold"), 
+            text_color=DR_TEXT
+        )
         self.title.grid(row=0, column=0, sticky="w", padx=16, pady=(18, 6))
 
         self.subtitle = ctk.CTkLabel(self, text="Organize & Rename safely", font=ctk.CTkFont(size=12), text_color=DR_MUTED)
@@ -30,10 +46,13 @@ class SidebarView(ctk.CTkFrame):
         self.pages_frame.grid(row=3, column=0, sticky="ew", padx=10, pady=(0, 12))
         self.pages_frame.grid_columnconfigure(0, weight=1)
 
+        # 100% English Labels
         self._pages = [
             ("Organizer", "Organizer", "🏠"),
-            ("Presets", "Presets", "⭐"),
-            ("Large files", "LargeFiles", "📦"),
+            ("Mass Renamer", "Renamer", "📝"),
+            ("Folder Flattener", "Flattener", "📥"),
+            ("Date Organizer", "DateOrg", "📅"),
+            ("Large Files", "LargeFiles", "📦"),
             ("Settings", "Settings", "⚙"),
             ("About", "About", "ℹ"),
         ]
@@ -63,7 +82,7 @@ class SidebarView(ctk.CTkFrame):
 
         if collapsed:
             self.configure(width=self._collapsed_width)
-            self.title.configure(text="BF")
+            self.title.configure(text="")
 
             for w in self._collapse_hide:
                 try:
@@ -77,7 +96,7 @@ class SidebarView(ctk.CTkFrame):
             self.pages_frame.grid_configure(padx=10)
         else:
             self.configure(width=self._expanded_width)
-            self.title.configure(text="BulkFolder")
+            self.title.configure(text=" BulkFolder")
 
             for w in self._collapse_hide:
                 try:

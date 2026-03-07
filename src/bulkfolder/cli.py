@@ -13,6 +13,7 @@ DEFAULT_MAPPING = {
     "zip": "Archives", "rar": "Archives", "7z": "Archives",
     "mp3": "Audio", "wav": "Audio",
     "mp4": "Video", "mov": "Video",
+    "py" : "Code", "python" : "Code", "xsls" : "Sheets", "csv" : "Sheets", "exe" : "Programs",
 }
 
 def main() -> None:

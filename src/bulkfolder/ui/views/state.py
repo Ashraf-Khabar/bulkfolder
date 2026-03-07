@@ -12,4 +12,3 @@ class UIState:
     large_files_root: Path | None = None
     renamer_root: Path | None = None
     flattener_root: Path | None = None
-    dateorg_root: Path | None = None
