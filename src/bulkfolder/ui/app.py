@@ -5,13 +5,20 @@ import customtkinter as ctk
 from pathlib import Path
 from PIL import Image, ImageTk, ImageDraw
 
+# --- Imports: Theme, State, and Logic ---
+# Importing colors to ensure the app respects our custom UI theme.
 from .theme import DR_BG, DR_TEXT, DR_MUTED, DR_SURFACE, DR_BORDER, DR_PURPLE
+# UIState acts as the "memory" of the application (e.g., storing the selected folder paths).
 from .state import UIState
+# actions contains all the logical functions (the "Controller" in MVC).
 from . import actions
 
+# --- Imports: Configuration and Project Info ---
 from ..config import load_settings, AppSettings
 from ..info import get_project_info
 
+# --- Imports: Views (UI Components) ---
+# Importing all the visual blocks (the "View" in MVC) that make up the user interface.
 from .views.sidebar import SidebarView
 from .views.topbar import TopbarView
 from .views.cards import CardsRow
@@ -21,7 +28,7 @@ from .views.logs import LogsView
 from .views.duplicates import DuplicatesView
 from .views.organizer_panel import OrganizerPanel
 from .views.renamer_page import RenamerPage
-from .views.chunker_page import ChunkerPage      # Import Chunker
+from .views.chunker_page import ChunkerPage
 from .views.flattener_page import FlattenerPage  
 from .views.unzipper_page import UnzipperPage
 from .views.pdf_page import PdfPage              
@@ -29,36 +36,47 @@ from .views.dateorg_page import DateOrgPage
 from .views.empty_folders_page import EmptyFoldersPage
 from .views.settings_page import SettingsPage
 from .views.large_files_page import LargeFilesPage
-from .views.about_page import AboutPage          # Import About Page
+from .views.about_page import AboutPage
 
 
 class SplashScreen(ctk.CTkToplevel):
+    """
+    A temporary loading screen that appears before the main application window is ready.
+    It provides visual feedback to the user while settings and heavy components are loading.
+    """
     def __init__(self, master, logo_path):
         super().__init__(master)
+        # Removes the standard window borders and close/minimize buttons.
         self.overrideredirect(True)
+        # Keeps the splash screen always on top of other windows.
         self.attributes("-topmost", True)
         self.configure(fg_color=DR_BG)
 
+        # Calculate coordinates to center the splash screen on the user's monitor.
         width, height = 340, 380
         x = (self.winfo_screenwidth() // 2) - (width // 2)
         y = (self.winfo_screenheight() // 2) - (height // 2)
         self.geometry(f"{width}x{height}+{x}+{y}")
 
+        # Configure the grid to center the inner frame.
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
         inner = ctk.CTkFrame(self, fg_color="transparent")
         inner.grid(row=0, column=0)
 
+        # Load and display the application logo if it exists.
         if logo_path and logo_path.exists():
             img = Image.open(logo_path)
             self.photo = ctk.CTkImage(light_image=img, dark_image=img, size=(120, 120))
             ctk.CTkLabel(inner, text="", image=self.photo).pack(pady=(0, 20))
 
+        # Title and subtitles
         ctk.CTkLabel(inner, text="BulkFolder", font=ctk.CTkFont(size=26, weight="bold"), text_color=DR_TEXT).pack()
         ctk.CTkLabel(inner, text="Organize & Rename safely", font=ctk.CTkFont(size=13), text_color=DR_MUTED).pack(pady=(0, 20))
         ctk.CTkLabel(inner, text="Loading...", font=ctk.CTkFont(size=12), text_color=DR_MUTED).pack(pady=(0, 5))
 
+        # Start an animated progress bar to indicate loading is happening.
         self.pb = ctk.CTkProgressBar(inner, width=220, progress_color=DR_PURPLE, fg_color=DR_BORDER)
         self.pb.pack(pady=(5, 0))
         self.pb.set(0)
@@ -66,14 +84,23 @@ class SplashScreen(ctk.CTkToplevel):
 
 
 class App(ctk.CTk):
+    """
+    The main application window. It acts as the "orchestrator", connecting
+    the UI (Views) with the logic (Actions) and holding the shared memory (State).
+    """
     def __init__(self):
         super().__init__()
+        # Hide the main window immediately so only the splash screen is visible at startup.
         self.withdraw()
+        
+        # Load user preferences from the config file.
         self.settings: AppSettings = load_settings()
 
+        # Force dark mode. The dynamic custom colors are handled by theme.py.
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
         
+        # Apply UI scaling based on user settings (e.g., 125%).
         try:
             scale_val = float(self.settings.ui_scaling.replace("%", "")) / 100.0
             ctk.set_widget_scaling(scale_val)
@@ -81,60 +108,78 @@ class App(ctk.CTk):
         except Exception:
             pass
 
+        # Set main window properties.
         self.title("BulkFolder")
         self.geometry("1200x720")
         self.minsize(1020, 640)
         self.configure(fg_color=DR_BG)
 
+        # Locate the logo and generate a default one if it doesn't exist.
         self.logo_path = Path(__file__).resolve().parent.parent.parent / "assets" / "logo.png"
         self._ensure_logo_exists(self.logo_path)
 
+        # Set the window icon (top left corner and taskbar).
         if self.logo_path.exists():
             img = Image.open(self.logo_path)
             photo = ImageTk.PhotoImage(img)
             self.wm_iconphoto(True, photo)
             self.iconphoto(True, photo)
+            # Use .ico format specifically for Windows taskbar.
             if sys.platform.startswith("win"):
                 ico_path = self.logo_path.with_suffix(".ico")
                 if ico_path.exists():
                     self.iconbitmap(str(ico_path))
 
+        # Initialize and update the splash screen so it renders before the heavy lifting starts.
         self.splash = SplashScreen(self, self.logo_path)
         self.splash.update()
 
+        # Initialize the global application state (the shared memory).
         self.ui_state = UIState()
+        
+        # Initialize variables to store active plans and scan results.
         self.last_plan = None
         self.last_scan = None
         self.large_files_scan = None
         self.renamer_plan = []  
-        self.chunker_plan = [] # Ajout du chunker_plan
+        self.chunker_plan = []
         self.flattener_plan = []
         self.dateorg_plan = [] 
 
+        # Configure the main window grid layout.
+        # Column 0 (Sidebar) has weight 0 (fixed width). Column 1 (Main content) has weight 1 (expandable).
         self.grid_columnconfigure(0, weight=0)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        self.sidebar_view = SidebarView(self, on_page=self.switch_page, logo_path=self.logo_path)
+        # Build the Sidebar and pass the project_info (version, etc.) to it.
+        info = get_project_info()
+        self.sidebar_view = SidebarView(info, self, on_page=self.switch_page, logo_path=self.logo_path)
         self.sidebar_view.grid(row=0, column=0, sticky="nsw")
 
+        # Create the main right-side container that will hold the topbar and the pages.
         self.main = ctk.CTkFrame(self, corner_radius=0, fg_color=DR_BG)
         self.main.grid(row=0, column=1, sticky="nsew")
         self.main.grid_columnconfigure(0, weight=1)
-        self.main.grid_rowconfigure(1, weight=1)
+        self.main.grid_rowconfigure(1, weight=1) # Row 1 is for the page container, it expands.
 
+        # Build the Topbar (Status and title).
         self.topbar_view = TopbarView(self.main, on_toggle_sidebar=self.toggle_sidebar)
         self.topbar_view.grid(row=0, column=0, sticky="ew", padx=18, pady=(18, 8))
 
+        # Create the specific container where different pages will be swapped in and out.
         self.page_container = ctk.CTkFrame(self.main, corner_radius=0, fg_color=DR_BG)
         self.page_container.grid(row=1, column=0, sticky="nsew")
         self.page_container.grid_columnconfigure(0, weight=1)
         self.page_container.grid_rowconfigure(0, weight=1)
 
+        # --- Pre-building all pages ---
+        # We build ALL pages at startup and store them in a dictionary.
+        # This allows instant switching between pages without losing the user's data or state on that page.
         self.pages: dict[str, ctk.CTkFrame] = {}
         self.pages["Organizer"] = self._build_page_organizer(self.page_container)
         self.pages["Renamer"] = self._build_page_renamer(self.page_container)
-        self.pages["Chunker"] = self._build_page_chunker(self.page_container) # Intégration Chunker
+        self.pages["Chunker"] = self._build_page_chunker(self.page_container)
         self.pages["Flattener"] = self._build_page_flattener(self.page_container)
         self.pages["Unzipper"] = self._build_page_unzipper(self.page_container)
         self.pages["PdfConverter"] = self._build_page_pdf(self.page_container) 
@@ -142,8 +187,9 @@ class App(ctk.CTk):
         self.pages["EmptyFolders"] = self._build_page_empty_folders(self.page_container)
         self.pages["LargeFiles"] = self._build_page_large_files(self.page_container)
         self.pages["Settings"] = self._build_page_settings(self.page_container)
-        self.pages["About"] = self._build_page_about(self.page_container) # Intégration About Page complète
+        self.pages["About"] = self._build_page_about(self.page_container)
 
+        # Determine which page to show first based on user settings.
         self._current_page = ""
         start_page = self.settings.default_page
         if start_page not in self.pages:
@@ -152,10 +198,13 @@ class App(ctk.CTk):
 
         self.log("App started.", level="DEBUG")
         self.set_status("Ready.")
+        
+        # Wait 2.5 seconds before destroying the splash screen and showing the main UI.
         self.after(2500, self._show_main_window)
 
     @staticmethod
     def _ensure_logo_exists(png_path: Path):
+        """Generates a dummy placeholder logo if the user hasn't provided one."""
         ico_path = png_path.with_suffix(".ico")
         if png_path.exists() and ico_path.exists(): return
         try:
@@ -173,11 +222,18 @@ class App(ctk.CTk):
         except Exception: pass
 
     def _show_main_window(self):
+        """Transitions from the splash screen to the main application window."""
         try:
             self.splash.pb.stop()
             self.splash.destroy()
         except: pass
-        self.deiconify()
+        self.deiconify() # Unhides the main window.
+
+    # -------------------------------------------------------------------------
+    # Page Builder Methods
+    # These methods create the specific UI frames for each feature and 
+    # link their buttons to the corresponding logic in actions.py using lambdas.
+    # -------------------------------------------------------------------------
 
     def _build_page_organizer(self, parent) -> ctk.CTkFrame:
         frame = ctk.CTkFrame(parent, corner_radius=0, fg_color=DR_BG)
@@ -185,6 +241,7 @@ class App(ctk.CTk):
         frame.grid_columnconfigure(1, weight=1)
         frame.grid_rowconfigure(0, weight=1)
 
+        # Left panel: Controls for the Organizer
         self.organizer_panel = OrganizerPanel(
             frame,
             on_choose_folder=lambda: actions.choose_folder(self),
@@ -198,6 +255,7 @@ class App(ctk.CTk):
         self.organizer_panel.grid(row=0, column=0, sticky="ns", padx=(18, 10), pady=(0, 18))
         self.organizer_panel.configure(width=320)
 
+        # Right panel: Data visualization (Cards and Tabs)
         right = ctk.CTkFrame(frame, corner_radius=0, fg_color=DR_BG)
         right.grid(row=0, column=1, sticky="nsew", padx=(10, 18), pady=(0, 18))
         right.grid_columnconfigure(0, weight=1)
@@ -304,24 +362,43 @@ class App(ctk.CTk):
         )
         return self.about_page
 
+    # -------------------------------------------------------------------------
+    # Utility Methods
+    # -------------------------------------------------------------------------
+
     def switch_page(self, page_name: str) -> None:
+        """
+        Hides the current page and displays the requested page.
+        Instead of destroying and recreating the UI, it uses grid_forget() to hide it,
+        which preserves all user inputs (text fields, checkboxes, etc.).
+        """
         if page_name not in self.pages: return
+        
+        # Hide the currently active page.
         if self._current_page: self.pages[self._current_page].grid_forget()
+        
+        # Show the new page.
         self.pages[page_name].grid(row=0, column=0, sticky="nsew")
         self._current_page = page_name
+        
+        # Update the topbar title.
         self.topbar_view.set_title(page_name if page_name != "Organizer" else "Organizer")
 
     def toggle_sidebar(self) -> None:
+        """Expands or collapses the left sidebar."""
         self.sidebar_view.toggle()
 
     def set_status(self, s: str) -> None:
+        """Updates the status message in the top navigation bar."""
         self.topbar_view.set_status(s)
 
     def log(self, s: str, level: str = "INFO") -> None:
+        """Sends a message to the Logs tab in the Organizer."""
         if hasattr(self, "logs_view"): self.logs_view.log(s, level=level)
 
     @staticmethod
     def human_bytes(n: int) -> str:
+        """Converts raw bytes into a readable format (KB, MB, GB, etc.)."""
         step = 1024.0
         for u in ["B", "KB", "MB", "GB", "TB"]:
             if n < step: return f"{n:.1f} {u}"
