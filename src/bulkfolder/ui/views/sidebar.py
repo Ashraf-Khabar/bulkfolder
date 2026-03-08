@@ -6,7 +6,7 @@ import customtkinter as ctk
 from ..theme import DR_PANEL, DR_TEXT, DR_MUTED, DR_BORDER, DR_SURFACE
 
 class SidebarView(ctk.CTkFrame):
-    def __init__(self, master, on_page, logo_path=None):
+    def __init__(self, project_info:dict, master, on_page, logo_path=None):
         super().__init__(master, corner_radius=0, fg_color=DR_PANEL)
 
         self._on_page = on_page
@@ -15,7 +15,7 @@ class SidebarView(ctk.CTkFrame):
         self._collapsed_width = 74
         
         self.configure(width=self._expanded_width)
-        self.grid_propagate(False) 
+        self.grid_propagate(False)
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(99, weight=1)
@@ -58,7 +58,7 @@ class SidebarView(ctk.CTkFrame):
         self._pages = [
             ("Organizer", "Organizer", "home.png"),
             ("Mass Renamer", "Renamer", "edit.png"),
-            ("Folder Splitter", "Chunker", "pie-chart.png"), # Intégration du Chunker ici !
+            ("Folder Splitter", "Chunker", "pie-chart.png"),
             ("Folder Flattener", "Flattener", "flatten.png"),
             ("Archive Extractor", "Unzipper", "unlock.png"), 
             ("Image to PDF", "PdfConverter", "pdf.png"), 
@@ -78,8 +78,11 @@ class SidebarView(ctk.CTkFrame):
             
             ctk_icon = None
             if icon_path.exists():
-                img = Image.open(icon_path)
-                ctk_icon = ctk.CTkImage(light_image=img, dark_image=img, size=(20, 20))
+                original_img = Image.open(icon_path).convert("RGBA")
+                r, g, b, a = original_img.split()
+                white_img = Image.new("RGBA", original_img.size, (255, 255, 255, 255))
+                white_img.putalpha(a)
+                ctk_icon = ctk.CTkImage(light_image=white_img, dark_image=white_img, size=(20, 20))
 
             btn = ctk.CTkButton(
                 self.pages_frame,
@@ -100,6 +103,16 @@ class SidebarView(ctk.CTkFrame):
             self._page_labels.append(label)
 
         self._collapse_hide = [self.subtitle, self.pages_lbl]
+
+        # display the verion
+
+        version = project_info.get("version", "1.0.0")
+        self.version_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.version_frame.grid(row=6, column=0, sticky="w", padx=2, pady=(0, 14))
+
+        self.version_display = ctk.CTkLabel(self.version_frame, text=f"version {version}", justify="center", text_color=DR_MUTED)
+        self.version_display.grid(row=6, column=0, padx=16)
+        
 
     def _ensure_dummy_icon(self, path: Path):
         if path.exists(): return
