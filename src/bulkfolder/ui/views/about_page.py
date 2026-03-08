@@ -52,4 +52,5 @@ class AboutPage(ctk.CTkFrame):
 
         # Crédits
         author = project_info.get("author", "Community")
-        ctk.CTkLabel(inner, text=f"Developed with ❤️ by {author}", font=ctk.CTkFont(size=12), text_color=DR_MUTED).pack()
+
+        ctk.CTkLabel(inner, text=f"Developed by {author}", font=ctk.CTkFont(size=12), text_color=DR_MUTED).pack()
