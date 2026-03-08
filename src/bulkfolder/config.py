@@ -6,7 +6,7 @@ CONFIG_PATH = Path.home() / ".bulkfolder_config.json"
 
 @dataclass
 class AppSettings:
-    theme_name: str = "Dracula"  # Nouveau paramètre !
+    theme_name: str = "Dracula"
     ui_scaling: str = "100%"
     autoscan_on_folder_select: bool = True
     ask_confirmations: bool = True

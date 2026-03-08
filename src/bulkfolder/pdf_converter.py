@@ -18,8 +18,7 @@ def convert_images_to_pdf(image_paths: list[Path], delete_original: bool = False
             while pdf_path.exists():
                 pdf_path = path.with_name(f"{path.stem}_{counter}.pdf")
                 counter += 1
-            
-            # CORRECTION : on force la conversion en string "str(pdf_path)"
+                
             img.convert('RGB').save(str(pdf_path), "PDF", resolution=100.0)
             success_count += 1
             

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from PIL import Image
+from pathlib import Path
+from PIL import Image, ImageDraw
 import customtkinter as ctk
 from ..theme import DR_PANEL, DR_TEXT, DR_MUTED, DR_BORDER, DR_SURFACE
 
@@ -47,24 +48,44 @@ class SidebarView(ctk.CTkFrame):
         self.pages_frame.grid(row=3, column=0, sticky="ew", padx=10, pady=(0, 12))
         self.pages_frame.grid_columnconfigure(0, weight=1)
 
+        if logo_path:
+            self.icons_dir = logo_path.parent / "icons"
+        else:
+            self.icons_dir = Path(__file__).resolve().parent.parent.parent.parent / "assets" / "icons"
+            
+        self.icons_dir.mkdir(parents=True, exist_ok=True)
+
         self._pages = [
-            ("Organizer", "Organizer", "🏠"),
-            ("Mass Renamer", "Renamer", "📝"),
-            ("Folder Flattener", "Flattener", "📥"),
-            ("Archive Extractor", "Unzipper", "🔓"), 
-            ("Image to PDF", "PdfConverter", "📄"), # Le nouveau bouton PDF !
-            ("Date Organizer", "DateOrg", "📅"),
-            ("Empty Folders", "EmptyFolders", "🧹"), 
-            ("Large Files", "LargeFiles", "📦"),
-            ("Settings", "Settings", "⚙"),
-            ("About", "About", "ℹ"),
+            ("Organizer", "Organizer", "home.png"),
+            ("Mass Renamer", "Renamer", "edit.png"),
+            ("Folder Splitter", "Chunker", "pie-chart.png"), # Intégration du Chunker ici !
+            ("Folder Flattener", "Flattener", "flatten.png"),
+            ("Archive Extractor", "Unzipper", "unlock.png"), 
+            ("Image to PDF", "PdfConverter", "pdf.png"), 
+            ("Date Organizer", "DateOrg", "calendar.png"),
+            ("Empty Folders", "EmptyFolders", "clean.png"), 
+            ("Large Files", "LargeFiles", "box.png"),
+            ("Settings", "Settings", "settings.png"),
+            ("About", "About", "info.png"),
         ]
 
         self._page_buttons: list[ctk.CTkButton] = []
-        for idx, (label, page_name, icon) in enumerate(self._pages):
+        self._page_labels: list[str] = []
+
+        for idx, (label, page_name, icon_filename) in enumerate(self._pages):
+            icon_path = self.icons_dir / icon_filename
+            self._ensure_dummy_icon(icon_path) 
+            
+            ctk_icon = None
+            if icon_path.exists():
+                img = Image.open(icon_path)
+                ctk_icon = ctk.CTkImage(light_image=img, dark_image=img, size=(20, 20))
+
             btn = ctk.CTkButton(
                 self.pages_frame,
-                text=f"  {icon}   {label}",
+                text=f"  {label}",
+                image=ctk_icon,      
+                compound="left",     
                 anchor="w",
                 command=lambda p=page_name: self._on_page(p),
                 fg_color=DR_SURFACE,
@@ -72,11 +93,24 @@ class SidebarView(ctk.CTkFrame):
                 text_color=DR_TEXT,
                 border_color=DR_BORDER,
                 border_width=1,
+                height=36            
             )
             btn.grid(row=idx, column=0, sticky="ew", pady=(0, 8 if idx < len(self._pages) - 1 else 0))
             self._page_buttons.append(btn)
+            self._page_labels.append(label)
 
         self._collapse_hide = [self.subtitle, self.pages_lbl]
+
+    def _ensure_dummy_icon(self, path: Path):
+        if path.exists(): return
+        try:
+            img = Image.new("RGBA", (64, 64), (255, 255, 255, 0))
+            draw = ImageDraw.Draw(img)
+            draw.rounded_rectangle([(12, 12), (52, 52)], radius=8, outline=DR_MUTED, width=4)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            img.save(path, "PNG")
+        except Exception:
+            pass
 
     def toggle(self) -> None:
         self.set_collapsed(self._expanded)
@@ -90,13 +124,15 @@ class SidebarView(ctk.CTkFrame):
             for w in self._collapse_hide:
                 try: w.grid_remove()
                 except Exception: pass
-            for btn, (_, _, icon) in zip(self._page_buttons, self._pages):
-                btn.configure(text=icon, anchor="center")
+            
+            for btn in self._page_buttons:
+                btn.configure(text="", anchor="center")
         else:
             self.configure(width=self._expanded_width)
             self.title.configure(text=" BulkFolder")
             for w in self._collapse_hide:
                 try: w.grid()
                 except Exception: pass
-            for btn, (label, _, icon) in zip(self._page_buttons, self._pages):
-                btn.configure(text=f"  {icon}   {label}", anchor="w")
+            
+            for btn, label in zip(self._page_buttons, self._page_labels):
+                btn.configure(text=f"  {label}", anchor="w")

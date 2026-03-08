@@ -10,6 +10,7 @@ from .state import UIState
 from . import actions
 
 from ..config import load_settings, AppSettings
+from ..info import get_project_info
 
 from .views.sidebar import SidebarView
 from .views.topbar import TopbarView
@@ -19,7 +20,8 @@ from .views.preview import PreviewView
 from .views.logs import LogsView
 from .views.duplicates import DuplicatesView
 from .views.organizer_panel import OrganizerPanel
-from .views.renamer_page import RenamerPage    
+from .views.renamer_page import RenamerPage
+from .views.chunker_page import ChunkerPage      # Import Chunker
 from .views.flattener_page import FlattenerPage  
 from .views.unzipper_page import UnzipperPage
 from .views.pdf_page import PdfPage              
@@ -27,9 +29,8 @@ from .views.dateorg_page import DateOrgPage
 from .views.empty_folders_page import EmptyFoldersPage
 from .views.settings_page import SettingsPage
 from .views.large_files_page import LargeFilesPage
+from .views.about_page import AboutPage          # Import About Page
 
-from .views.about_page import AboutPage
-from ..info import get_project_info
 
 class SplashScreen(ctk.CTkToplevel):
     def __init__(self, master, logo_path):
@@ -70,7 +71,6 @@ class App(ctk.CTk):
         self.withdraw()
         self.settings: AppSettings = load_settings()
 
-        # On force CustomTkinter en Dark, nos thèmes dynamiques s'occupent des vraies couleurs
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
         
@@ -107,6 +107,7 @@ class App(ctk.CTk):
         self.last_scan = None
         self.large_files_scan = None
         self.renamer_plan = []  
+        self.chunker_plan = [] # Ajout du chunker_plan
         self.flattener_plan = []
         self.dateorg_plan = [] 
 
@@ -133,6 +134,7 @@ class App(ctk.CTk):
         self.pages: dict[str, ctk.CTkFrame] = {}
         self.pages["Organizer"] = self._build_page_organizer(self.page_container)
         self.pages["Renamer"] = self._build_page_renamer(self.page_container)
+        self.pages["Chunker"] = self._build_page_chunker(self.page_container) # Intégration Chunker
         self.pages["Flattener"] = self._build_page_flattener(self.page_container)
         self.pages["Unzipper"] = self._build_page_unzipper(self.page_container)
         self.pages["PdfConverter"] = self._build_page_pdf(self.page_container) 
@@ -140,7 +142,7 @@ class App(ctk.CTk):
         self.pages["EmptyFolders"] = self._build_page_empty_folders(self.page_container)
         self.pages["LargeFiles"] = self._build_page_large_files(self.page_container)
         self.pages["Settings"] = self._build_page_settings(self.page_container)
-        self.pages["About"] = self._build_page_about(self.page_container)
+        self.pages["About"] = self._build_page_about(self.page_container) # Intégration About Page complète
 
         self._current_page = ""
         start_page = self.settings.default_page
@@ -226,6 +228,15 @@ class App(ctk.CTk):
         )
         return self.renamer_page
 
+    def _build_page_chunker(self, parent) -> ctk.CTkFrame:
+        self.chunker_page = ChunkerPage(
+            parent,
+            on_choose_folder=lambda: actions.chunker_choose_folder(self),
+            on_preview=lambda: actions.chunker_preview(self),
+            on_apply=lambda: actions.chunker_apply(self),
+        )
+        return self.chunker_page
+
     def _build_page_flattener(self, parent) -> ctk.CTkFrame:
         self.flattener_page = FlattenerPage(
             parent,
@@ -280,30 +291,18 @@ class App(ctk.CTk):
         )
         return self.large_files_page
 
+    def _build_page_settings(self, parent) -> ctk.CTkFrame:
+        self.settings_page = SettingsPage(parent, settings=self.settings, on_save=lambda: actions.settings_save(self))
+        return self.settings_page
+
     def _build_page_about(self, parent) -> ctk.CTkFrame:
-        # On lit le XML une fois au lancement
         info = get_project_info()
-        
         self.about_page = AboutPage(
             parent,
             project_info=info,
             on_open_github=lambda url: actions.open_github(self, url)
         )
         return self.about_page
-
-    def _build_page_settings(self, parent) -> ctk.CTkFrame:
-        self.settings_page = SettingsPage(parent, settings=self.settings, on_save=lambda: actions.settings_save(self))
-        return self.settings_page
-
-    def _build_page_placeholder(self, parent, title: str, subtitle: str) -> ctk.CTkFrame:
-        frame = ctk.CTkFrame(parent, corner_radius=16, fg_color=DR_SURFACE, border_color=DR_BORDER, border_width=1)
-        frame.grid_columnconfigure(0, weight=1)
-        frame.grid_rowconfigure(0, weight=1)
-        inner = ctk.CTkFrame(frame, fg_color="transparent")
-        inner.grid(row=0, column=0, sticky="nsew", padx=24, pady=24)
-        ctk.CTkLabel(inner, text=title, font=ctk.CTkFont(size=20, weight="bold"), text_color=DR_TEXT).pack(anchor="w")
-        ctk.CTkLabel(inner, text=subtitle, font=ctk.CTkFont(size=12), text_color=DR_MUTED).pack(anchor="w", pady=(8, 0))
-        return frame
 
     def switch_page(self, page_name: str) -> None:
         if page_name not in self.pages: return

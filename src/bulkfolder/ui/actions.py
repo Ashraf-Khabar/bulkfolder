@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import os
+import sys
 import shutil
+import webbrowser
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox
-import sys
+
 import customtkinter as ctk
 
 from ..scanner import scan_folder
@@ -16,13 +18,33 @@ from ..undo import undo_last as exec_undo_last
 from ..duplicates import find_duplicates
 from ..config import save_settings
 from ..pdf_converter import convert_images_to_pdf
-import webbrowser
+from ..chunker import plan_chunks, apply_chunks  # NOUVEL IMPORT CHUNKER
 
 DEFAULT_MAPPING = {
-    "jpg": "Images", "jpeg": "Images", "png": "Images", "gif": "Images", "webp": "Images",
-    "pdf": "PDFs", "doc": "Docs", "docx": "Docs", "txt": "Docs", "md": "Docs",
-    "zip": "Archives", "rar": "Archives", "7z": "Archives",
-    "mp3": "Audio", "wav": "Audio", "mp4": "Video", "mov": "Video",
+    "jpg": "Images", "jpeg": "Images", "png": "Images", "gif": "Images", "webp": "Images", 
+    "bmp": "Images", "tiff": "Images", "svg": "Images", "ico": "Images", "raw": "Images", "heic": "Images",
+    "pdf": "PDFs", "doc": "Docs", "docx": "Docs", "txt": "Docs", "md": "Docs", 
+    "rtf": "Docs", "odt": "Docs",
+    "xls": "Spreadsheets", "xlsx": "Spreadsheets", "csv": "Spreadsheets", "ods": "Spreadsheets",
+    "ppt": "Presentations", "pptx": "Presentations", "odp": "Presentations", "key": "Presentations",
+    "zip": "Archives", "rar": "Archives", "7z": "Archives", "tar": "Archives", "gz": "Archives", 
+    "bz2": "Archives", "xz": "Archives", "iso": "Archives",
+    "mp3": "Audio", "wav": "Audio", "flac": "Audio", "aac": "Audio", "ogg": "Audio", 
+    "wma": "Audio", "m4a": "Audio",
+    "mp4": "Video", "mov": "Video", "avi": "Video", "mkv": "Video", "wmv": "Video", 
+    "flv": "Video", "webm": "Video", "m4v": "Video",
+    "py": "Code", "js": "Code", "html": "Code", "css": "Code", "java": "Code", 
+    "c": "Code", "cpp": "Code", "cs": "Code", "php": "Code", "rb": "Code", 
+    "go": "Code", "rs": "Code", "ts": "Code", "swift": "Code", "kt": "Code",
+    "sh": "Code", "bat": "Code", "ps1": "Code",
+    "json": "Data", "xml": "Data", "yaml": "Data", "yml": "Data", "sql": "Data", 
+    "db": "Data", "sqlite": "Data", "ini": "Data", "env": "Data", "toml": "Data",
+    "psd": "Design", "ai": "Design", "xd": "Design", "fig": "Design", "sketch": "Design", 
+    "indd": "Design", "blend": "Design", "fbx": "Design", "obj": "Design",
+    "exe": "Executables", "msi": "Executables", "apk": "Executables", "app": "Executables", 
+    "dmg": "Executables", "deb": "Executables", "rpm": "Executables",
+    "ttf": "Fonts", "otf": "Fonts", "woff": "Fonts", "woff2": "Fonts",
+    "epub": "Books", "mobi": "Books", "azw3": "Books"
 }
 
 def _ask_confirm(app, title: str, message: str) -> bool:
@@ -113,6 +135,59 @@ def find_duplicates_action(app) -> None:
     app.tabs.set("Duplicates")
 
 
+# ---------- Folder Splitter (Chunker) actions ----------
+
+def chunker_choose_folder(app) -> None:
+    path = filedialog.askdirectory()
+    if path:
+        app.ui_state.chunker_root = Path(path)
+        app.chunker_page.set_folder(str(path))
+        app.chunker_page.render_preview([])
+        app.chunker_plan = []
+
+def chunker_preview(app) -> None:
+    root = getattr(app.ui_state, "chunker_root", None)
+    if not root:
+        messagebox.showwarning("Folder Splitter", "Please choose a folder first.")
+        return
+
+    mode = app.chunker_page.mode_var.get()
+    try:
+        val = float(app.chunker_page.val_var.get())
+        if val <= 0: raise ValueError
+    except ValueError:
+        messagebox.showerror("Error", "Please enter a valid number greater than 0.")
+        return
+
+    chunks = plan_chunks(root, mode, val)
+    app.chunker_plan = chunks
+    app.chunker_page.render_preview(chunks)
+    app.set_status(f"Splitter: {len(chunks)} parts planned.")
+
+def chunker_apply(app) -> None:
+    plan = getattr(app, "chunker_plan", [])
+    root = getattr(app.ui_state, "chunker_root", None)
+    if not plan or not root: return
+
+    if _ask_confirm(app, "Folder Splitter", f"Split this folder into {len(plan)} parts?"):
+        app.set_status("Splitting folder... Please wait.")
+        app.update()
+        
+        success, errors = apply_chunks(root, plan)
+        
+        if errors:
+            messagebox.showwarning("Partial Success", f"Moved: {success}\nErrors: {len(errors)}")
+            for err in errors:
+                app.log(f"Split Error: {err}", level="ERROR")
+        else:
+            messagebox.showinfo("Success", f"Successfully chunked folder into {len(plan)} parts!")
+            
+        app.log(f"Successfully moved {success} files into {len(plan)} chunks.", level="SUCCESS")
+        
+        app.chunker_page.render_preview([])
+        app.chunker_plan = []
+
+
 # ---------- Folder Flattener actions ----------
 
 def flattener_choose_folder(app) -> None:
@@ -186,13 +261,9 @@ def unzipper_refresh(app) -> None:
     scanned = scan_folder(root, include_subfolders=True)
     
     archives = [item.path for item in scanned if item.is_file and item.path.suffix.lower() in allowed_exts]
-
     app.unzipper_page.render_archives(archives)
     app.set_status(f"Archives: {len(archives)} found.")
 
-# (Remplacez les fonctions existantes correspondantes dans actions.py)
-
-# ---------- Archive Extractor (Unzipper) actions ----------
 def unzipper_extract_selected(app, paths: list[Path]) -> None:
     if not paths: return
     delete_after = app.unzipper_page.switch_delete.get()
@@ -229,47 +300,6 @@ def unzipper_extract_selected(app, paths: list[Path]) -> None:
         app.log(f"Successfully extracted {success_count}/{len(paths)} archives.", level="SUCCESS")
         unzipper_refresh(app)
 
-# ---------- Image to PDF actions ----------
-def pdf_convert_selected(app, paths: list[Path]) -> None:
-    if not paths: return
-    delete_after = app.pdf_page.switch_delete.get()
-    
-    msg = f"Convert {len(paths)} image(s) to PDF?"
-    if delete_after: msg += "\nOriginal images will be DELETED."
-
-    if _ask_confirm(app, "Convert to PDF", msg):
-        app.set_status("Converting... Please wait.")
-        app.update() 
-        
-        success, errors = convert_images_to_pdf(paths, delete_original=delete_after)
-        
-        if errors:
-            messagebox.showwarning("Partial Success", f"Converted: {success}\nFailed: {len(errors)}\nCheck logs for details.")
-            for err in errors:
-                app.log(f"PDF Error: {err}", level="ERROR")
-        else:
-            messagebox.showinfo("Success", f"Successfully converted {success} images to PDF!")
-            
-        app.log(f"Successfully converted {success}/{len(paths)} images to PDF.", level="SUCCESS")
-        pdf_refresh(app)
-
-# ---------- Large Files actions ----------
-def large_files_delete_selected(app, paths: list[Path]) -> None:
-    if not paths: return
-    if _ask_confirm(app, "Delete", f"Permanently delete {len(paths)} selected file(s)?\nThis action cannot be undone."):
-        deleted = 0
-        for path in paths:
-            try:
-                path.unlink()
-                deleted += 1
-                if getattr(app, "large_files_scan", None):
-                    app.large_files_scan = [i for i in app.large_files_scan if i.path != path]
-            except Exception as e:
-                app.log(f"Error deleting {path.name}: {e}", level="ERROR")
-        
-        messagebox.showinfo("Cleaned", f"Successfully deleted {deleted} files!")
-        app.log(f"Deleted {deleted} files.", level="WARN")
-        large_files_refresh(app, float(app.large_files_page.min_mb_var.get() or 0))
 
 # ---------- Image to PDF actions ----------
 
@@ -307,8 +337,12 @@ def pdf_convert_selected(app, paths: list[Path]) -> None:
         
         success, errors = convert_images_to_pdf(paths, delete_original=delete_after)
         
-        for err in errors:
-            app.log(f"PDF Error: {err}", level="ERROR")
+        if errors:
+            messagebox.showwarning("Partial Success", f"Converted: {success}\nFailed: {len(errors)}\nCheck logs for details.")
+            for err in errors:
+                app.log(f"PDF Error: {err}", level="ERROR")
+        else:
+            messagebox.showinfo("Success", f"Successfully converted {success} images to PDF!")
             
         app.log(f"Successfully converted {success}/{len(paths)} images to PDF.", level="SUCCESS")
         pdf_refresh(app)
@@ -350,6 +384,8 @@ def large_files_delete_selected(app, paths: list[Path]) -> None:
                     app.large_files_scan = [i for i in app.large_files_scan if i.path != path]
             except Exception as e:
                 app.log(f"Error deleting {path.name}: {e}", level="ERROR")
+        
+        messagebox.showinfo("Cleaned", f"Successfully deleted {deleted} files!")
         app.log(f"Deleted {deleted} files.", level="WARN")
         large_files_refresh(app, float(app.large_files_page.min_mb_var.get() or 0))
 
@@ -538,10 +574,19 @@ def empty_folders_delete_selected(app, paths: list[Path]) -> None:
         empty_folders_refresh(app)
 
 
+# ---------- About & Links actions ----------
+
+def open_github(app, url: str) -> None:
+    if url:
+        app.log(f"Opening browser: {url}", level="INFO")
+        webbrowser.open(url)
+    else:
+        messagebox.showerror("Error", "No repository URL found in configuration.")
+
 # ---------- Settings actions ----------
 
 def settings_save(app) -> None:
-    old_theme = app.settings.theme_name  # On mémorise l'ancien thème
+    old_theme = app.settings.theme_name
     new_settings = app.settings_page.read_settings_from_form()
     app.settings = new_settings
     
@@ -558,22 +603,9 @@ def settings_save(app) -> None:
     app.set_status("Settings saved.")
     app.log("Settings saved. UI updated.", level="SUCCESS")
 
-    # Si le thème a changé, on affiche un message d'avertissement puis on redémarre automatiquement
     if new_settings.theme_name != old_theme:
-        # Affiche simplement le message "Warning"
         messagebox.showwarning(
             "Restart Required", 
             f"Theme set to '{new_settings.theme_name}'.\n\nThe application will now restart automatically to apply the new colors."
         )
-        # Redémarrage automatique direct après que l'utilisateur a cliqué sur "OK"
         os.execl(sys.executable, sys.executable, *sys.argv)
-
-
-# ---------- About & Links actions ----------
-
-def open_github(app, url: str) -> None:
-    if url:
-        app.log(f"Opening browser: {url}", level="INFO")
-        webbrowser.open(url)
-    else:
-        messagebox.showerror("Error", "No repository URL found in configuration.")

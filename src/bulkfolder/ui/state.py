@@ -16,3 +16,4 @@ class UIState:
     empty_folders_root: Path | None = None
     unzipper_root: Path | None = None
     pdf_root: Path | None = None
+    chunker_root: Path | None = None
