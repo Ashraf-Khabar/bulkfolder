@@ -3,11 +3,13 @@
 **BulkFolder** is a desktop software application designed to organize, clean up, and mass-rename your files quickly and, most importantly, **safely**. 
 
 <h1 align="center">
-  <br>
-  <a href="Bulk folder"><img src="./src/assets/logo.png" alt="Bulk folder logo"></a>
-  <br>
-  Bulk folder
-  <br>
+    <br>
+      <a href="Bulk folder">
+        <img src="./src/assets/logo.png" width="450" height="400" alt="Bulk folder logo" >
+      </a>
+    <br>
+      Bulk folder
+    <br>
 </h1>
 
 <h1>
@@ -123,6 +125,7 @@ Upon the very first launch, BulkFolder will automatically generate its own custo
 
 ## License
 This project is licensed under the terms of the LICENSE file included in the repository.
+
 
 
 
