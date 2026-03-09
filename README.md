@@ -77,7 +77,7 @@ BulkFolder is written in Python 3. Ensure you have **Python 3.8 or higher** inst
 
 1. **Clone the repository** (or extract the source code archive):
    ```bash
-   git clone [https://github.com/your-username/bulkfolder.git](https://github.com/your-username/bulkfolder.git)
+   git clone https://github.com/Ashraf-Khabar/bulkfolder.git
    cd bulkfolder
 
 2. Create a virtual environment (Recommended):
@@ -123,5 +123,6 @@ Upon the very first launch, BulkFolder will automatically generate its own custo
 
 ## License
 This project is licensed under the terms of the LICENSE file included in the repository.
+
 
 
