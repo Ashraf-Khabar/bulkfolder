@@ -12,7 +12,7 @@
 
 <h1>
     <br>
-    <a href="Bulk folder"><img src="./src/assets/demo.gif" alt="Bulk folder logo"></a>
+    <a href="Bulk folder"><img src="./src/assets/demo.png" alt="Bulk folder logo"></a>
 </h1>
 
 Whether you have a chaotic "Downloads" folder, thousands of vacation photos to sort by date, or complex nested directories to clean up, BulkFolder centralizes all the necessary tools in a modern and intuitive interface (powered by CustomTkinter with a dark Dracula theme).
@@ -123,3 +123,5 @@ Upon the very first launch, BulkFolder will automatically generate its own custo
 
 ## License
 This project is licensed under the terms of the LICENSE file included in the repository.
+
+
