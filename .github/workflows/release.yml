@@ -4,11 +4,10 @@ on:
   push:
     branches:
       - main
-
 jobs:
   build:
     runs-on: windows-latest
-
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -30,26 +29,33 @@ jobs:
         [xml]$project = Get-Content "project_info.xml"
         $version = $project.project.version
         echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+    - name: Create run.py
+      shell: powershell
+      run: |
+        @"
+        import sys
+        import os
+        src_path = os.path.join(os.path.dirname(__file__), 'src')
+        sys.path.insert(0, src_path)
+        from bulkfolder.ui.main import main
+        if __name__ == "__main__":
+            main()
+        "@ | Out-File -FilePath run.py -Encoding utf8
 
     - name: Build with PyInstaller
       run: |
-        # Créez d'abord le fichier run.py comme discuté précédemment
         python -m PyInstaller --noconfirm --windowed --name "BulkFolder" --icon="src/assets/logo.ico" --add-data="src/assets;assets" --paths="src" --collect-all customtkinter run.py
 
     - name: Compile Inno Setup
-      uses: rysoftware/inno-setup-action@v1
+      uses: minidisc/innosetup-action@v1
       with:
         filepath: installer_script.iss
 
     - name: Create Release
-      id: create_release
       uses: softprops/action-gh-release@v1
       with:
         tag_name: v${{ steps.get_version.outputs.VERSION }}
         name: Release v${{ steps.get_version.outputs.VERSION }}
-        draft: false
-        prerelease: false
-        files: |
-          Output/*.exe  # Envoie l'installateur généré par Inno Setup
+        files: Output/*.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
