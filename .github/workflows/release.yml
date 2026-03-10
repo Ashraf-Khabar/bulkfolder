@@ -41,13 +41,8 @@ jobs:
     - name: Compile Inno Setup
       shell: pwsh
       run: |
-        # On vérifie si le fichier existe avant de compiler
-        if (Test-Path "installer_script.iss") {
-            & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "installer_script.iss"
-        } else {
-            Write-Error "Fichier installer_script.iss introuvable à la racine !"
-            exit 1
-        }
+        $ver = "${{ steps.get_version.outputs.VERSION }}"
+        & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "installer_script.iss"
 
     - name: Create Release
       uses: softprops/action-gh-release@v1

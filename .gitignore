@@ -17,3 +17,9 @@ Output/
 # IDE
 .vscode/
 .idea/
+
+build/
+dist/
+Output/
+*.spec
+run.py
