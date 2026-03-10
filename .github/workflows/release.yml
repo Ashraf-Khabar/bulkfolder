@@ -4,10 +4,11 @@ on:
   push:
     branches:
       - main
+
 jobs:
   build:
     runs-on: windows-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -29,7 +30,9 @@ jobs:
         [xml]$project = Get-Content "project_info.xml"
         $version = $project.project.version
         echo "VERSION=$version" >> $env:GITHUB_OUTPUT
-    - name: Create run.py
+      # Récupère la version depuis project_info.xml
+
+    - name: Create run.py launcher
       shell: powershell
       run: |
         @"
@@ -42,16 +45,17 @@ jobs:
             main()
         "@ | Out-File -FilePath run.py -Encoding utf8
 
-    - name: Build with PyInstaller
+    - name: Build EXE with PyInstaller
       run: |
         python -m PyInstaller --noconfirm --windowed --name "BulkFolder" --icon="src/assets/logo.ico" --add-data="src/assets;assets" --paths="src" --collect-all customtkinter run.py
+      # Utilise les ressources et icônes du projet
 
     - name: Compile Inno Setup
-      uses: minidisc/innosetup-action@v1
-      with:
-        filepath: installer_script.iss
+      shell: pwsh
+      run: |
+        & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer_script.iss
 
-    - name: Create Release
+    - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
         tag_name: v${{ steps.get_version.outputs.VERSION }}
