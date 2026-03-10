@@ -2,10 +2,8 @@
 __pycache__/
 *.py[cod]
 *$py.class
-.env
-.venv
-env/
 venv/
+.env
 
 # PyInstaller & Build
 build/
@@ -15,12 +13,7 @@ run.py
 
 # Inno Setup
 Output/
-*.iss
 
-# IDE (VS Code, PyCharm)
+# IDE
 .vscode/
 .idea/
-
-# OS
-.DS_Store
-Thumbs.db
