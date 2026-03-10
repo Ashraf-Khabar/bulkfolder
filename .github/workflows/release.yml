@@ -33,13 +33,33 @@ jobs:
         [xml]$project = Get-Content "project_info.xml"
         $version = $project.project.version
         echo "VERSION=$version" >> $env:GITHUB_OUTPUT
-      # Extraction de la version depuis project_info.xml
 
-    - name: Build EXE
+    - name: Create version_info.txt
+      shell: powershell
       run: |
-        # Création du lanceur pour éviter les erreurs d'import
+        $ver = "${{ steps.get_version.outputs.VERSION }}".Split('.')
+        $v1,$v2,$v3 = $ver[0],$ver[1],$ver[2]
+        $template = @"
+        VSVersionInfo(
+          ffi=FixedFileInfo(filevers=($v1,$v2,$v3,0), prodvers=($v1,$v2,$v3,0), mask=0x3f, flags=0x0, OS=0x40004, fileType=0x1, subtype=0x0, date=(0, 0)),
+          kids=[StringFileInfo([StringTable(u'040904B0', [
+            StringStruct(u'CompanyName', u'BulkFolder Contributors'),
+            StringStruct(u'FileDescription', u'Bulk folder organizer and renamer'),
+            StringStruct(u'FileVersion', u'${{ steps.get_version.outputs.VERSION }}'),
+            StringStruct(u'InternalName', u'BulkFolder'),
+            StringStruct(u'LegalCopyright', u'MIT License'),
+            StringStruct(u'OriginalFilename', u'BulkFolder.exe'),
+            StringStruct(u'ProductName', u'BulkFolder'),
+            StringStruct(u'ProductVersion', u'${{ steps.get_version.outputs.VERSION }}')])]), 
+          VarFileInfo([VarStruct(u'Translation', [1033, 1200])])]
+        )
+        "@
+        $template | Out-File -FilePath version_info.txt -Encoding utf8
+
+    - name: Build EXE with PyInstaller
+      run: |
         echo "import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src')); from bulkfolder.ui.main import main; main()" > run.py
-        python -m PyInstaller --noconfirm --windowed --name "BulkFolder" --icon="src/assets/logo.ico" --add-data="src/assets;assets" --paths="src" --collect-all customtkinter run.py
+        python -m PyInstaller --noconfirm --windowed --name "BulkFolder" --icon="src/assets/logo.ico" --add-data="src/assets;assets" --paths="src" --version-file="version_info.txt" --collect-all customtkinter run.py
 
     - name: Compile Inno Setup
       shell: pwsh
