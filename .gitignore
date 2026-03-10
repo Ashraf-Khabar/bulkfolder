@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+
+# PyInstaller & Build
+build/
+dist/
+*.spec
+run.py
+
+# Inno Setup
+Output/
+*.iss
+
+# IDE (VS Code, PyCharm)
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
