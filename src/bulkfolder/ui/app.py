@@ -124,9 +124,27 @@ class App(ctk.CTk):
             photo = ImageTk.PhotoImage(img)
             self.wm_iconphoto(True, photo)
             self.iconphoto(True, photo)
-            # Use .ico format specifically for Windows taskbar.
+            
+            # --- WINDOWS TASKBAR MAGIC FIX ---
             if sys.platform.startswith("win"):
+                # 1. Tell Windows this is a standalone app (AppUserModelID)
+                try:
+                    import ctypes
+                    # Changement ici : on passe à 1.1 pour vider le cache de Windows !
+                    myappid = 'monprojet.bulkfolder.app.1.1'
+                    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+                except Exception:
+                    pass
+
                 ico_path = self.logo_path.with_suffix(".ico")
+                
+                # 2. Force the creation of a proper .ICO file with ALL necessary sizes
+                try:
+                    img.save(ico_path, format="ICO", sizes=[(16,16), (24,24), (32,32), (48,48), (64,64), (128,128), (256,256)])
+                except Exception:
+                    pass
+
+                # 3. Apply the icon
                 if ico_path.exists():
                     self.iconbitmap(str(ico_path))
 
