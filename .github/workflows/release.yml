@@ -30,32 +30,26 @@ jobs:
         [xml]$project = Get-Content "project_info.xml"
         $version = $project.project.version
         echo "VERSION=$version" >> $env:GITHUB_OUTPUT
-      # Récupère la version depuis project_info.xml
+      # Extraction de la version depuis project_info.xml
 
-    - name: Create run.py launcher
-      shell: powershell
+    - name: Build EXE
       run: |
-        @"
-        import sys
-        import os
-        src_path = os.path.join(os.path.dirname(__file__), 'src')
-        sys.path.insert(0, src_path)
-        from bulkfolder.ui.main import main
-        if __name__ == "__main__":
-            main()
-        "@ | Out-File -FilePath run.py -Encoding utf8
-
-    - name: Build EXE with PyInstaller
-      run: |
+        # Création du lanceur pour éviter les erreurs d'import
+        echo "import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src')); from bulkfolder.ui.main import main; main()" > run.py
         python -m PyInstaller --noconfirm --windowed --name "BulkFolder" --icon="src/assets/logo.ico" --add-data="src/assets;assets" --paths="src" --collect-all customtkinter run.py
-      # Utilise les ressources et icônes du projet
 
     - name: Compile Inno Setup
       shell: pwsh
       run: |
-        & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer_script.iss
+        # On vérifie si le fichier existe avant de compiler
+        if (Test-Path "installer_script.iss") {
+            & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "installer_script.iss"
+        } else {
+            Write-Error "Fichier installer_script.iss introuvable à la racine !"
+            exit 1
+        }
 
-    - name: Create GitHub Release
+    - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
         tag_name: v${{ steps.get_version.outputs.VERSION }}
