@@ -16,7 +16,7 @@ from .views.cards import CardsRow
 from .views.dashboard import DashboardView
 from .views.preview import PreviewView
 from .views.logs import LogsView
-from .views.duplicates import DuplicatesView
+# DuplicatesView retiré
 from .views.organizer_panel import OrganizerPanel
 from .views.renamer_page import RenamerPage
 from .views.chunker_page import ChunkerPage
@@ -80,6 +80,7 @@ class App(ctk.CTk):
 
         self.ui_state = UIState()
         self.last_plan = None
+        self.last_scan = None
         self.renamer_plan = []
         self.chunker_plan = []
         self.flattener_plan = []
@@ -112,9 +113,13 @@ class App(ctk.CTk):
 
         self.after(2000, self._show_main_window)
 
+    def set_status(self, text: str):
+        """ Fix pour l'erreur AttributeError: set_status """
+        if hasattr(self, "topbar_view"):
+            self.topbar_view.set_title(f"{self._current_page} - {text}")
+
     @property
     def settings_page(self):
-        """ Redirection for actions.py to find the settings page in the pages dictionary """
         return self.pages.get("Settings")
 
     def _build_all_pages(self):
@@ -148,7 +153,6 @@ class App(ctk.CTk):
         self.organizer_panel = OrganizerPanel(frame,
             on_choose_folder=lambda: actions.choose_folder(self),
             on_scan=lambda: actions.scan_and_plan(self),
-            on_find_duplicates=lambda: actions.find_duplicates_action(self),
             on_apply=lambda: actions.apply_plan(self),
             on_undo=lambda: actions.undo_last_ops(self),
             on_toggle_subfolders=lambda e: actions.toggle_subfolders(self, e),
@@ -165,8 +169,6 @@ class App(ctk.CTk):
         self.dashboard_view.pack(fill="both", expand=True)
         self.preview_view = PreviewView(self.tabs.add("Preview"))
         self.preview_view.pack(fill="both", expand=True)
-        self.duplicates_view = DuplicatesView(self.tabs.add("Duplicates"))
-        self.duplicates_view.pack(fill="both", expand=True)
         self.logs_view = LogsView(self.tabs.add("Logs"))
         self.logs_view.pack(fill="both", expand=True)
         return frame
@@ -178,11 +180,17 @@ class App(ctk.CTk):
     def _build_page_pdf(self, p): return PdfPage(p, lambda: actions.pdf_choose_folder(self), lambda: actions.pdf_refresh(self), lambda ps: actions.pdf_convert_selected(self, ps))
     def _build_page_dateorg(self, p): return DateOrgPage(p, lambda: actions.dateorg_choose_folder(self), lambda: actions.dateorg_preview(self), lambda: actions.dateorg_apply(self))
     def _build_page_empty_folders(self, p): return EmptyFoldersPage(p, lambda: actions.empty_folders_choose_folder(self), lambda: actions.empty_folders_refresh(self), lambda ps: actions.empty_folders_delete_selected(self, ps))
-    def _build_page_large_files(self, p): return LargeFilesPage(p, lambda: actions.large_files_choose_folder(self), lambda m: actions.large_files_refresh(self, m), lambda ps: actions.large_files_delete_selected(self, ps))
+    def _build_page_large_files(self, p): return LargeFilesPage(p, lambda: actions.large_files_choose_folder(self), lambda m: actions.large_files_refresh(self, m))
     def _build_page_settings(self, p): return SettingsPage(p, self.settings, lambda: actions.settings_save(self))
     def _build_page_about(self, p): return AboutPage(p, get_project_info(), lambda u: actions.open_github(self, u))
 
     def log(self, s, level="INFO"):
         if hasattr(self, "logs_view"): self.logs_view.log(s, level=level)
+
+    def human_bytes(self, n: int) -> str:
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if n < 1024: return f"{n:.1f} {unit}"
+            n /= 1024
+        return f"{n:.1f} TB"
 
     def toggle_sidebar(self): pass
