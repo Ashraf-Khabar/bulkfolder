@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project>
     <name>BulkFolder</name>
-    <version>1.7.4</version>
+    <version>1.7.5</version>
     <description>The safest and fastest bulk organizer and renamer.</description>
     <author>Achraf KHABAR / Open Source Community</author>
     <repository>https://github.com/Ashraf-Khabar/bulkfolder</repository>
