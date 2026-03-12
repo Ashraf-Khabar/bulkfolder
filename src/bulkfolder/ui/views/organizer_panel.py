@@ -1,9 +1,11 @@
 from __future__ import annotations
+
 import customtkinter as ctk
 from ..theme import (
     DR_PANEL, DR_TEXT, DR_MUTED, DR_BORDER,
     DR_ACCENT, DR_ACCENT_HOVER, DR_PURPLE, DR_SURFACE
 )
+
 
 class OrganizerPanel(ctk.CTkFrame):
     def __init__(
@@ -11,6 +13,7 @@ class OrganizerPanel(ctk.CTkFrame):
         master,
         on_choose_folder,
         on_scan,
+        on_find_duplicates,
         on_apply,
         on_undo,
         on_toggle_subfolders,
@@ -60,29 +63,50 @@ class OrganizerPanel(ctk.CTkFrame):
         self.sw_move.select()
         self.sw_move.grid(row=7, column=0, sticky="w", padx=16, pady=(0, 10))
 
-        # Les entrées Find/Replace ont été supprimées ici
+        self.entry_find = ctk.CTkEntry(self, placeholder_text="Find text (optional)",
+                                       fg_color=DR_SURFACE, border_color=DR_BORDER, text_color=DR_TEXT)
+        self.entry_find.grid(row=8, column=0, sticky="ew", padx=16, pady=(0, 8))
+
+        self.entry_replace = ctk.CTkEntry(self, placeholder_text="Replace with",
+                                          fg_color=DR_SURFACE, border_color=DR_BORDER, text_color=DR_TEXT)
+        self.entry_replace.grid(row=9, column=0, sticky="ew", padx=16, pady=(0, 12))
 
         self.btn_scan = ctk.CTkButton(
             self, text="Scan & Preview", command=on_scan,
             fg_color=DR_ACCENT, hover_color=DR_ACCENT_HOVER, text_color=DR_TEXT
         )
-        self.btn_scan.grid(row=8, column=0, sticky="ew", padx=16, pady=(0, 10))
+        self.btn_scan.grid(row=10, column=0, sticky="ew", padx=16, pady=(0, 10))
+
+        self.btn_dups = ctk.CTkButton(
+            self, text="Find duplicates", command=on_find_duplicates,
+            fg_color=DR_SURFACE, hover_color=DR_BORDER, text_color=DR_TEXT,
+            border_color=DR_BORDER, border_width=1
+        )
+        self.btn_dups.grid(row=11, column=0, sticky="ew", padx=16, pady=(0, 10))
 
         self.btn_apply = ctk.CTkButton(
             self, text="Apply (disabled)", state="disabled", command=on_apply,
             fg_color=DR_PURPLE, hover_color=DR_PURPLE, text_color=DR_TEXT
         )
-        self.btn_apply.grid(row=9, column=0, sticky="ew", padx=16, pady=(0, 10))
+        self.btn_apply.grid(row=12, column=0, sticky="ew", padx=16, pady=(0, 10))
 
         self.btn_undo = ctk.CTkButton(
             self, text="Undo (disabled)", state="disabled", command=on_undo,
             fg_color=DR_SURFACE, hover_color=DR_BORDER, text_color=DR_TEXT,
             border_color=DR_BORDER, border_width=1
         )
-        self.btn_undo.grid(row=10, column=0, sticky="ew", padx=16, pady=(0, 16))
+        self.btn_undo.grid(row=13, column=0, sticky="ew", padx=16, pady=(0, 16))
+
+    # -------- API used by actions/app --------
 
     def set_folder(self, path: str) -> None:
         self.lbl_path.configure(text=path)
+
+    def get_find_text(self) -> str:
+        return self.entry_find.get()
+
+    def get_replace_text(self) -> str:
+        return self.entry_replace.get()
 
     def set_apply_enabled(self, enabled: bool) -> None:
         if enabled:
@@ -95,6 +119,8 @@ class OrganizerPanel(ctk.CTkFrame):
             self.btn_undo.configure(state="normal", text="Undo last")
         else:
             self.btn_undo.configure(state="disabled", text="Undo (disabled)")
+
+    # -------- NEW: setters for Presets --------
 
     def set_include_subfolders(self, enabled: bool) -> None:
         if enabled:
@@ -109,3 +135,9 @@ class OrganizerPanel(ctk.CTkFrame):
         else:
             self.sw_move.deselect()
         self._on_toggle_move_by_ext(enabled)
+
+    def set_find_replace(self, find_text: str, replace_text: str) -> None:
+        self.entry_find.delete(0, "end")
+        self.entry_find.insert(0, find_text or "")
+        self.entry_replace.delete(0, "end")
+        self.entry_replace.insert(0, replace_text or "")
