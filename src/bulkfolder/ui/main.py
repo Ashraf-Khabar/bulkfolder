@@ -1,19 +1,23 @@
 from __future__ import annotations
 import sys
+import ctypes
 from .app import App
 
 def main() -> None:
-    # --- CORRECTION DE L'ICÔNE POUR LA BARRE DES TÂCHES WINDOWS ---
-    # Permet de dissocier l'application de l'exécutable Python standard
-    # et d'afficher correctement votre logo personnalisé.
+    """
+    Main entry point for the BulkFolder application.
+    Includes Windows-specific fixes for taskbar icons and app identification.
+    """
+    # --- WINDOWS APP USER MODEL ID ---
+    # This helps Windows distinguish the app from a generic Python process.
+    # Format: CompanyName.ProductName.SubProduct.Version
     if sys.platform.startswith("win"):
-        import ctypes
         try:
-            myappid = "achrafkhabar.bulkfolder.app.1.0"
+            myappid = "Zyloscore.BulkFolder.Organizer.1.1.0"
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
         except Exception:
             pass
-    # ---------------------------------------------------------------
+    # ----------------------------------
 
     app = App()
     app.mainloop()
