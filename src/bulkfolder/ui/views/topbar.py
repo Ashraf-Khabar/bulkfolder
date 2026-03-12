@@ -1,48 +1,38 @@
 from __future__ import annotations
 import customtkinter as ctk
-from ..theme import DR_SURFACE, DR_BORDER, DR_TEXT, DR_MUTED
-
+from ..theme import DR_TEXT, DR_MUTED, DR_BORDER, DR_SURFACE
 
 class TopbarView(ctk.CTkFrame):
-    # Suppression de on_toggle_theme des arguments
-    def __init__(self, master, on_toggle_sidebar):
-        super().__init__(
-            master,
-            corner_radius=16,
-            fg_color=DR_SURFACE,
-            border_color=DR_BORDER,
-            border_width=1,
+    """
+    The TopbarView displays the current page title and application status.
+    Menu button removed since sidebar is fixed.
+    """
+    def __init__(self, master, on_toggle_sidebar=None):
+        super().__init__(master, fg_color="transparent")
+        
+        self.grid_columnconfigure(1, weight=1)
+
+        self.info_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.info_frame.grid(row=0, column=1, sticky="w")
+
+        self.title_label = ctk.CTkLabel(
+            self.info_frame, 
+            text="Dashboard", 
+            font=ctk.CTkFont(size=22, weight="bold"), 
+            text_color=DR_TEXT
         )
-        self.grid_columnconfigure(2, weight=1)
+        self.title_label.pack(side="top", anchor="w")
 
-        self.sidebar_btn = ctk.CTkButton(
-            self,
-            text="☰",
-            width=44,
-            command=on_toggle_sidebar,
-            fg_color=DR_SURFACE,
-            hover_color=DR_BORDER,
-            text_color=DR_TEXT,
-            border_color=DR_BORDER,
-            border_width=1,
+        self.status_label = ctk.CTkLabel(
+            self.info_frame, 
+            text="Ready to organize", 
+            font=ctk.CTkFont(size=13), 
+            text_color=DR_MUTED
         )
-        self.sidebar_btn.grid(row=0, column=0, sticky="w", padx=(12, 8), pady=12)
-
-        self.h1 = ctk.CTkLabel(
-            self,
-            text="Organizer",
-            font=ctk.CTkFont(size=18, weight="bold"),
-            text_color=DR_TEXT,
-        )
-        self.h1.grid(row=0, column=1, sticky="w", padx=(0, 10), pady=14)
-
-        self.status_lbl = ctk.CTkLabel(self, text="—", text_color=DR_MUTED)
-        self.status_lbl.grid(row=0, column=2, sticky="w", padx=10, pady=14)
-
-        # Le bouton de changement de thème a été supprimé d'ici
-
-    def set_status(self, s: str) -> None:
-        self.status_lbl.configure(text=s)
+        self.status_label.pack(side="top", anchor="w")
 
     def set_title(self, title: str) -> None:
-        self.h1.configure(text=title)
+        self.title_label.configure(text=title)
+
+    def set_status(self, status: str) -> None:
+        self.status_label.configure(text=status)
