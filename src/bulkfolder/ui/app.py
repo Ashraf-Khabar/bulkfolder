@@ -147,7 +147,6 @@ class App(ctk.CTk):
         self.main.grid_columnconfigure(0, weight=1)
         self.main.grid_rowconfigure(1, weight=1)
 
-        # Removed on_toggle_sidebar callback as it's no longer needed
         self.topbar_view = TopbarView(self.main, on_toggle_sidebar=None)
         self.topbar_view.grid(row=0, column=0, sticky="ew", padx=18, pady=(18, 8))
 
@@ -216,11 +215,9 @@ class App(ctk.CTk):
             frame,
             on_choose_folder=lambda: actions.choose_folder(self),
             on_scan=lambda: actions.scan_and_plan(self),
-            on_find_duplicates=lambda: actions.find_duplicates_action(self),
             on_apply=lambda: actions.apply_plan(self),
             on_undo=lambda: actions.undo_last_ops(self),
             on_toggle_subfolders=lambda enabled: actions.toggle_subfolders(self, enabled),
-            on_toggle_move_by_ext=lambda enabled: actions.toggle_move_by_ext(self, enabled),
         )
         self.organizer_panel.grid(row=0, column=0, sticky="ns", padx=(18, 10), pady=(0, 18))
         self.organizer_panel.configure(width=320)
@@ -240,8 +237,9 @@ class App(ctk.CTk):
         self.dashboard_view.pack(fill="both", expand=True)
         self.preview_view = PreviewView(self.tabs.add("Preview"))
         self.preview_view.pack(fill="both", expand=True)
-        self.duplicates_view = DuplicatesView(self.tabs.add("Duplicates"))
-        self.duplicates_view.pack(fill="both", expand=True)
+        
+        # Duplicates tab removed here
+        
         self.logs_view = LogsView(self.tabs.add("Logs"))
         self.logs_view.pack(fill="both", expand=True)
         return frame
