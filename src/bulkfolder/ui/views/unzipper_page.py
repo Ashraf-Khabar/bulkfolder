@@ -7,6 +7,7 @@ from ..theme import DR_BG, DR_SURFACE, DR_BORDER, DR_TEXT, DR_MUTED, DR_ACCENT, 
 
 class UnzipperPage(ctk.CTkFrame):
     def __init__(self, master, on_choose_folder, on_refresh, on_extract_selected):
+        # Initializing extractor view
         super().__init__(master, corner_radius=0, fg_color=DR_BG)
         
         self._on_choose_folder = on_choose_folder
@@ -16,24 +17,19 @@ class UnzipperPage(ctk.CTkFrame):
 
         self.grid_columnconfigure(0, weight=3) # List
         self.grid_columnconfigure(1, weight=1) # Preview
-        self.grid_rowconfigure(3, weight=1)
+        self.grid_rowconfigure(2, weight=1)
 
-        # Header
-        header = ctk.CTkFrame(self, fg_color="transparent")
-        header.grid(row=0, column=0, columnspan=2, sticky="ew", padx=18, pady=(0, 10))
-        header.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(header, text="Bulk Archive Extractor", font=ctk.CTkFont(size=20, weight="bold"), text_color=DR_TEXT).grid(row=0, column=0, sticky="w")
-        ctk.CTkLabel(header, text="Find all ZIP/TAR archives and extract them instantly", font=ctk.CTkFont(size=12), text_color=DR_MUTED).grid(row=1, column=0, sticky="w", pady=(6, 0))
-
+        # Folder selection row
         folder_row = ctk.CTkFrame(self, fg_color="transparent")
-        folder_row.grid(row=1, column=0, columnspan=2, sticky="ew", padx=18, pady=(0, 10))
+        folder_row.grid(row=0, column=0, columnspan=2, sticky="ew", padx=18, pady=(10, 10))
         self.btn_choose = ctk.CTkButton(folder_row, text="Choose folder", command=self._on_choose_folder, fg_color=DR_SURFACE, hover_color=DR_BORDER, text_color=DR_TEXT, border_color=DR_BORDER, border_width=1, width=120)
         self.btn_choose.pack(side="left", padx=(0, 10))
         self.lbl_path = ctk.CTkLabel(folder_row, text="No folder selected", text_color=DR_MUTED)
         self.lbl_path.pack(side="left")
 
+        # Top controls
         controls = ctk.CTkFrame(self, fg_color="transparent")
-        controls.grid(row=2, column=0, columnspan=2, sticky="ew", padx=18, pady=(0, 10))
+        controls.grid(row=1, column=0, columnspan=2, sticky="ew", padx=18, pady=(0, 10))
         self.btn_refresh = ctk.CTkButton(controls, text="Scan for Archives", command=self._on_refresh, fg_color=DR_SURFACE, hover_color=DR_BORDER, border_width=1, text_color=DR_TEXT, width=160)
         self.btn_refresh.pack(side="left")
         self.chk_select_all = ctk.CTkCheckBox(controls, text="Select All", command=self._toggle_select_all, fg_color=DR_PURPLE, hover_color=DR_ACCENT, text_color=DR_TEXT)
@@ -43,36 +39,41 @@ class UnzipperPage(ctk.CTkFrame):
         self.btn_extract_selected = ctk.CTkButton(controls, text="Extract Selected", command=self._handle_extract_selected, fg_color=DR_ACCENT, hover_color=DR_ACCENT_HOVER, text_color=DR_TEXT, width=160, state="disabled")
         self.btn_extract_selected.pack(side="left")
 
-        # List
+        # Archive list
         self.scroll = ctk.CTkScrollableFrame(self, fg_color=DR_SURFACE, corner_radius=12, border_width=1, border_color=DR_BORDER)
-        self.scroll.grid(row=3, column=0, sticky="nsew", padx=(18, 9), pady=(0, 18))
+        self.scroll.grid(row=2, column=0, sticky="nsew", padx=(18, 9), pady=(0, 18))
         self.scroll.grid_columnconfigure(0, weight=1)
 
-        # Preview
+        # Side preview
         self.preview_panel = ctk.CTkFrame(self, fg_color=DR_SURFACE, corner_radius=12, border_width=1, border_color=DR_BORDER, width=280)
-        self.preview_panel.grid(row=3, column=1, sticky="nsew", padx=(9, 18), pady=(0, 18))
+        self.preview_panel.grid(row=2, column=1, sticky="nsew", padx=(9, 18), pady=(0, 18))
         self.preview_panel.grid_propagate(False) 
         
         self.preview_info_lbl = ctk.CTkLabel(self.preview_panel, text="Select an archive to view info", text_color=DR_MUTED, justify="left", wraplength=240)
         self.preview_info_lbl.pack(padx=20, pady=20, fill="x")
 
-    def set_folder(self, path: str):
+    def set_folder(self, path: str) -> None:
+        """Update working path display."""
         self.lbl_path.configure(text=path)
 
-    def _update_extract_btn_state(self):
+    def _update_extract_btn_state(self) -> None:
+        """Update button state based on selection status."""
         has_selection = any(var.get() for var in self.selection_vars.values())
         self.btn_extract_selected.configure(state="normal" if has_selection else "disabled")
 
-    def _toggle_select_all(self):
+    def _toggle_select_all(self) -> None:
+        """Mass toggle selection."""
         state = self.chk_select_all.get()
         for var in self.selection_vars.values(): var.set(state)
         self._update_extract_btn_state()
 
-    def _handle_extract_selected(self):
+    def _handle_extract_selected(self) -> None:
+        """Extract all archives that are checked."""
         paths_to_extract = [p for p, var in self.selection_vars.items() if var.get()]
         if paths_to_extract: self._on_extract_selected(paths_to_extract)
 
-    def _show_preview(self, path: Path):
+    def _show_preview(self, path: Path) -> None:
+        """Display metadata for the selected archive."""
         try:
             size_mb = path.stat().st_size / (1024 * 1024)
             mod_time = datetime.datetime.fromtimestamp(path.stat().st_mtime).strftime('%Y-%m-%d %H:%M')
@@ -81,7 +82,8 @@ class UnzipperPage(ctk.CTkFrame):
         except Exception:
             self.preview_info_lbl.configure(text="Preview not available", text_color=DR_MUTED)
 
-    def render_archives(self, archives: list[Path]):
+    def render_archives(self, archives: list[Path]) -> None:
+        """Populate the list with detected archives."""
         for widget in self.scroll.winfo_children(): widget.destroy()
         self.selection_vars.clear()
         self.chk_select_all.deselect()
@@ -111,6 +113,7 @@ class UnzipperPage(ctk.CTkFrame):
             lbl_path = ctk.CTkLabel(info_frame, text=str(path.parent), font=ctk.CTkFont(size=11), text_color=DR_MUTED)
             lbl_path.pack(anchor="w")
 
+            # Interaction binding
             click_handler = lambda e, p=path: self._show_preview(p)
             row.bind("<Button-1>", click_handler)
             info_frame.bind("<Button-1>", click_handler)
