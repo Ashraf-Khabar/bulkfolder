@@ -1,76 +1,89 @@
 from __future__ import annotations
-
 import customtkinter as ctk
-from ..theme import DR_SURFACE, DR_BORDER, DR_TEXT, DR_MUTED
+
+from ..theme import DR_BG, DR_SURFACE, DR_BORDER, DR_TEXT, DR_MUTED, DR_ACCENT, DR_ACCENT_HOVER, DR_PURPLE
 
 
-class DuplicatesView(ctk.CTkFrame):
-    def __init__(self, master):
-        super().__init__(master, corner_radius=0, fg_color="transparent")
+class DateOrgPage(ctk.CTkFrame):
+    def __init__(self, master, on_choose_folder, on_preview, on_apply):
+        # Initialize frame
+        super().__init__(master, corner_radius=0, fg_color=DR_BG)
+        
+        self._on_choose_folder = on_choose_folder
+        self._on_preview = on_preview
+        self._on_apply = on_apply
 
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=1)
 
-        header = ctk.CTkFrame(self, fg_color="transparent")
-        header.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 6))
-        header.grid_columnconfigure(0, weight=1)
+        # Folder selection
+        folder_row = ctk.CTkFrame(self, fg_color="transparent")
+        folder_row.grid(row=0, column=0, sticky="ew", padx=18, pady=(10, 10))
 
-        ctk.CTkLabel(
-            header,
-            text="Duplicate files",
-            font=ctk.CTkFont(size=14, weight="bold"),
-            text_color=DR_TEXT,
-        ).grid(row=0, column=0, sticky="w")
-
-        self.sub = ctk.CTkLabel(
-            header,
-            text="Same content (SHA-256), grouped",
-            font=ctk.CTkFont(size=11),
-            text_color=DR_MUTED,
+        self.btn_choose = ctk.CTkButton(
+            folder_row, text="Choose folder", command=self._on_choose_folder,
+            fg_color=DR_SURFACE, hover_color=DR_BORDER, text_color=DR_TEXT, border_color=DR_BORDER, border_width=1, width=120
         )
-        self.sub.grid(row=0, column=1, sticky="e")
+        self.btn_choose.pack(side="left", padx=(0, 10))
 
-        self.box = ctk.CTkTextbox(
-            self,
-            fg_color=DR_SURFACE,
-            border_color=DR_BORDER,
-            text_color=DR_TEXT,
-            corner_radius=12
+        self.lbl_path = ctk.CTkLabel(folder_row, text="No folder selected", text_color=DR_MUTED)
+        self.lbl_path.pack(side="left")
+
+        # Structure controls
+        card = ctk.CTkFrame(self, corner_radius=12, fg_color=DR_SURFACE, border_color=DR_BORDER, border_width=1)
+        card.grid(row=1, column=0, sticky="ew", padx=18, pady=(0, 10))
+        
+        controls = ctk.CTkFrame(card, fg_color="transparent")
+        controls.pack(fill="x", padx=16, pady=16)
+
+        ctk.CTkLabel(controls, text="Folder Structure:", text_color=DR_TEXT).pack(side="left", padx=(0, 10))
+        
+        self.mode_var = ctk.StringVar(value="Year/Month (2024/01)")
+        self.opt_mode = ctk.CTkOptionMenu(
+            controls, variable=self.mode_var,
+            values=["Year (2024)", "Year/Month (2024/01)", "Year/Month/Day (2024/01/15)"],
+            fg_color=DR_SURFACE, button_color=DR_BORDER, text_color=DR_TEXT
         )
-        self.box.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
+        self.opt_mode.pack(side="left", padx=(0, 20))
 
-        # Console font bigger
-        try:
-            self.box.configure(font=("Cascadia Mono", 13))
-        except Exception:
-            self.box.configure(font=("Consolas", 13))
+        self.btn_apply = ctk.CTkButton(controls, text="Apply Sorting", state="disabled", command=self._on_apply, fg_color=DR_ACCENT, hover_color=DR_ACCENT_HOVER, text_color=DR_TEXT)
+        self.btn_apply.pack(side="right")
+        
+        self.btn_preview = ctk.CTkButton(controls, text="Preview", command=self._on_preview, fg_color=DR_SURFACE, hover_color=DR_BORDER, border_width=1, text_color=DR_TEXT)
+        self.btn_preview.pack(side="right", padx=(0, 10))
 
-        self._text = self.box._textbox
-        self._text.tag_configure("GROUP", foreground="#bd93f9")  # purple
-        self._text.tag_configure("PATH", foreground=DR_TEXT)
-        self._text.tag_configure("MUTED", foreground=DR_MUTED)
+        # Preview area
+        self.scroll = ctk.CTkScrollableFrame(self, fg_color=DR_SURFACE, corner_radius=12, border_width=1, border_color=DR_BORDER)
+        self.scroll.grid(row=2, column=0, sticky="nsew", padx=18, pady=(0, 18))
+        self.scroll.grid_columnconfigure(0, weight=1)
+        self.scroll.grid_columnconfigure(1, weight=0)
+        self.scroll.grid_columnconfigure(2, weight=1)
 
-        self._set_read_only(True)
+    def set_folder(self, path: str) -> None:
+        """Set the working directory path."""
+        self.lbl_path.configure(text=path)
 
-    def _set_read_only(self, ro: bool) -> None:
-        self.box.configure(state="disabled" if ro else "normal")
+    def set_apply_enabled(self, enabled: bool) -> None:
+        """Enable or disable action buttons."""
+        self.btn_apply.configure(state="normal" if enabled else "disabled")
 
-    def render(self, groups: list[list[str]]) -> None:
-        self.box.configure(state="normal")
-        self.box.delete("1.0", "end")
+    def clear_preview(self) -> None:
+        """Clear current results."""
+        for widget in self.scroll.winfo_children():
+            widget.destroy()
+        self.set_apply_enabled(False)
 
-        if not groups:
-            self.sub.configure(text="No duplicates found")
-            self._text.insert("end", "No duplicates found.\n", "MUTED")
-            self.box.configure(state="disabled")
+    def render_preview(self, files: list[tuple[str, str]]) -> None:
+        """Render planned file movements."""
+        self.clear_preview()
+
+        if not files:
+            ctk.CTkLabel(self.scroll, text="No files found to organize.", text_color=DR_MUTED).grid(row=0, column=0, columnspan=3, pady=40)
             return
 
-        self.sub.configure(text=f"{len(groups)} duplicate group(s) found")
-
-        for i, group in enumerate(groups, start=1):
-            self._text.insert("end", f"Group {i} ({len(group)} files)\n", "GROUP")
-            for p in group:
-                self._text.insert("end", f"  • {p}\n", "PATH")
-            self._text.insert("end", "\n", "MUTED")
-
-        self.box.configure(state="disabled")
+        for idx, (old_name, new_dest) in enumerate(files):
+            ctk.CTkLabel(self.scroll, text=old_name, text_color=DR_MUTED).grid(row=idx, column=0, sticky="e", padx=10, pady=4)
+            ctk.CTkLabel(self.scroll, text="➔", text_color=DR_PURPLE).grid(row=idx, column=1, padx=10, pady=4)
+            ctk.CTkLabel(self.scroll, text=new_dest, text_color=DR_TEXT, font=ctk.CTkFont(weight="bold")).grid(row=idx, column=2, sticky="w", padx=10, pady=4)
+            
+        self.set_apply_enabled(True)

@@ -6,26 +6,20 @@ from ..theme import DR_BG, DR_SURFACE, DR_BORDER, DR_TEXT, DR_MUTED, DR_ACCENT, 
 
 class RenamerPage(ctk.CTkFrame):
     def __init__(self, master, on_choose_folder, on_preview, on_apply):
+        # Initialize frame with background color
         super().__init__(master, corner_radius=0, fg_color=DR_BG)
         
         self._on_choose_folder = on_choose_folder
         self._on_preview = on_preview
         self._on_apply = on_apply
 
+        # Configure grid layout
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(3, weight=1)
+        self.grid_rowconfigure(2, weight=1) # Adjusted row index after header removal
 
-        # Header
-        header = ctk.CTkFrame(self, fg_color="transparent")
-        header.grid(row=0, column=0, sticky="ew", padx=18, pady=(0, 10))
-        header.grid_columnconfigure(0, weight=1)
-
-        ctk.CTkLabel(header, text="Mass Renamer", font=ctk.CTkFont(size=20, weight="bold"), text_color=DR_TEXT).grid(row=0, column=0, sticky="w")
-        ctk.CTkLabel(header, text="Easily add prefixes, suffixes, and numbering to your files", font=ctk.CTkFont(size=12), text_color=DR_MUTED).grid(row=1, column=0, sticky="w", pady=(6, 0))
-
-        # Folder selection
+        # Folder selection row
         folder_row = ctk.CTkFrame(self, fg_color="transparent")
-        folder_row.grid(row=1, column=0, sticky="ew", padx=18, pady=(0, 10))
+        folder_row.grid(row=0, column=0, sticky="ew", padx=18, pady=(10, 10))
 
         self.btn_choose = ctk.CTkButton(
             folder_row, text="Choose folder", command=self._on_choose_folder,
@@ -36,9 +30,9 @@ class RenamerPage(ctk.CTkFrame):
         self.lbl_path = ctk.CTkLabel(folder_row, text="No folder selected", text_color=DR_MUTED)
         self.lbl_path.pack(side="left")
 
-        # Renaming controls
+        # Renaming controls card
         card = ctk.CTkFrame(self, corner_radius=12, fg_color=DR_SURFACE, border_color=DR_BORDER, border_width=1)
-        card.grid(row=2, column=0, sticky="ew", padx=18, pady=(0, 10))
+        card.grid(row=1, column=0, sticky="ew", padx=18, pady=(0, 10))
         
         controls = ctk.CTkFrame(card, fg_color="transparent")
         controls.pack(fill="x", padx=16, pady=16)
@@ -61,25 +55,29 @@ class RenamerPage(ctk.CTkFrame):
         self.btn_apply = ctk.CTkButton(controls, text="Apply", state="disabled", command=self._on_apply, fg_color=DR_ACCENT, hover_color=DR_ACCENT_HOVER, text_color=DR_TEXT)
         self.btn_apply.grid(row=0, column=6)
 
-        # Preview list
+        # Preview list area
         self.scroll = ctk.CTkScrollableFrame(self, fg_color=DR_SURFACE, corner_radius=12, border_width=1, border_color=DR_BORDER)
-        self.scroll.grid(row=3, column=0, sticky="nsew", padx=18, pady=(0, 18))
+        self.scroll.grid(row=2, column=0, sticky="nsew", padx=18, pady=(0, 18))
         self.scroll.grid_columnconfigure(0, weight=1)
         self.scroll.grid_columnconfigure(1, weight=0)
         self.scroll.grid_columnconfigure(2, weight=1)
 
-    def set_folder(self, path: str):
+    def set_folder(self, path: str) -> None:
+        """Update the displayed folder path."""
         self.lbl_path.configure(text=path)
 
-    def set_apply_enabled(self, enabled: bool):
+    def set_apply_enabled(self, enabled: bool) -> None:
+        """Enable or disable the apply button."""
         self.btn_apply.configure(state="normal" if enabled else "disabled")
 
-    def clear_preview(self):
+    def clear_preview(self) -> None:
+        """Remove all preview items from the list."""
         for widget in self.scroll.winfo_children():
             widget.destroy()
         self.set_apply_enabled(False)
 
-    def render_preview(self, changes: list[tuple[str, str]]):
+    def render_preview(self, changes: list[tuple[str, str]]) -> None:
+        """Render the list of planned renaming changes."""
         self.clear_preview()
 
         if not changes:
