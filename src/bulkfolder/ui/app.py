@@ -21,7 +21,6 @@ from .views.cards import CardsRow
 from .views.dashboard import DashboardView
 from .views.preview import PreviewView
 from .views.logs import LogsView
-from .views.duplicates import DuplicatesView
 from .views.organizer_panel import OrganizerPanel
 from .views.renamer_page import RenamerPage
 from .views.chunker_page import ChunkerPage
@@ -73,7 +72,7 @@ class SplashScreen(ctk.CTkToplevel):
 
 class App(ctk.CTk):
     """
-    The main application window.
+    The main application window with a persistent bottom Terminal and Topbar toggle.
     """
     def __init__(self):
         super().__init__()
@@ -92,8 +91,8 @@ class App(ctk.CTk):
             pass
 
         self.title("BulkFolder")
-        self.geometry("1200x720")
-        self.minsize(1020, 640)
+        self.geometry("1240x800")
+        self.minsize(1020, 700)
         self.configure(fg_color=DR_BG)
 
         self.logo_path = Path(__file__).resolve().parent.parent.parent / "assets" / "logo.png"
@@ -103,24 +102,15 @@ class App(ctk.CTk):
             img = Image.open(self.logo_path)
             photo = ImageTk.PhotoImage(img)
             self.wm_iconphoto(True, photo)
-            self.iconphoto(True, photo)
             
             if sys.platform.startswith("win"):
                 try:
                     import ctypes
-                    myappid = 'monprojet.bulkfolder.app.1.1'
+                    myappid = 'zyloscore.bulkfolder.app.1.1'
                     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
-                except Exception:
-                    pass
-
+                except Exception: pass
                 ico_path = self.logo_path.with_suffix(".ico")
-                try:
-                    img.save(ico_path, format="ICO", sizes=[(16,16), (24,24), (32,32), (48,48), (64,64), (128,128), (256,256)])
-                except Exception:
-                    pass
-
-                if ico_path.exists():
-                    self.iconbitmap(str(ico_path))
+                if ico_path.exists(): self.iconbitmap(str(ico_path))
 
         self.splash = SplashScreen(self, self.logo_path)
         self.splash.update()
@@ -128,32 +118,38 @@ class App(ctk.CTk):
         self.ui_state = UIState()
         self.last_plan = None
         self.last_scan = None
-        self.large_files_scan = None
         self.renamer_plan = []  
         self.chunker_plan = []
-        self.flattener_plan = []
-        self.dateorg_plan = [] 
 
+        # Grid config
         self.grid_columnconfigure(0, weight=0)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
         info = get_project_info()
         self.sidebar_view = SidebarView(info, self, on_page=self.switch_page, logo_path=self.logo_path)
-        self.sidebar_view.grid(row=0, column=0, sticky="nsw")
+        self.sidebar_view.grid(row=0, column=0, rowspan=2, sticky="nsw")
 
-        self.main = ctk.CTkFrame(self, corner_radius=0, fg_color=DR_BG)
-        self.main.grid(row=0, column=1, sticky="nsew")
-        self.main.grid_columnconfigure(0, weight=1)
-        self.main.grid_rowconfigure(1, weight=1)
+        # Right side container
+        self.content_area = ctk.CTkFrame(self, corner_radius=0, fg_color=DR_BG)
+        self.content_area.grid(row=0, column=1, sticky="nsew")
+        self.content_area.grid_columnconfigure(0, weight=1)
+        self.content_area.grid_rowconfigure(1, weight=1) 
+        self.content_area.grid_rowconfigure(2, weight=0) 
 
-        self.topbar_view = TopbarView(self.main, on_toggle_sidebar=None)
+        # The Topbar now correctly handles the terminal toggle
+        self.topbar_view = TopbarView(self.content_area, on_toggle_sidebar=self.toggle_terminal)
         self.topbar_view.grid(row=0, column=0, sticky="ew", padx=18, pady=(18, 8))
 
-        self.page_container = ctk.CTkFrame(self.main, corner_radius=0, fg_color=DR_BG)
+        self.page_container = ctk.CTkFrame(self.content_area, corner_radius=0, fg_color=DR_BG)
         self.page_container.grid(row=1, column=0, sticky="nsew")
         self.page_container.grid_columnconfigure(0, weight=1)
         self.page_container.grid_rowconfigure(0, weight=1)
+
+        # Global Terminal
+        self.logs_view = LogsView(self.content_area, on_close=self.toggle_terminal)
+        self.logs_view.grid(row=2, column=0, sticky="ew", padx=18, pady=(0, 18))
+        self._terminal_visible = True
 
         self.pages: dict[str, ctk.CTkFrame] = {}
         self.pages["Organizer"] = self._build_page_organizer(self.page_container)
@@ -169,39 +165,29 @@ class App(ctk.CTk):
         self.pages["About"] = self._build_page_about(self.page_container)
 
         self._current_page = ""
-        start_page = self.settings.default_page
-        if start_page not in self.pages:
-            start_page = "Organizer"
-        self.switch_page(start_page)
+        self.switch_page(self.settings.default_page if self.settings.default_page in self.pages else "Organizer")
 
-        self.log("App started.", level="DEBUG")
+        self.log("System initialized.", level="DEBUG")
+        self.log("Terminal functional.", level="SUCCESS")
         self.set_status("Ready.")
         
-        self.after(2500, self._show_main_window)
+        self.after(2000, self._show_main_window)
 
     @staticmethod
     def _ensure_logo_exists(png_path: Path):
-        """Generates a dummy placeholder logo if the user hasn't provided one."""
         ico_path = png_path.with_suffix(".ico")
         if png_path.exists() and ico_path.exists(): return
         try:
-            size = 256
-            img = Image.new("RGBA", (size, size), (255, 255, 255, 0))
+            img = Image.new("RGBA", (256, 256), (255, 255, 255, 0))
             draw = ImageDraw.Draw(img)
-            bg_color, folder_back, folder_front = (40, 42, 54, 255), (98, 114, 164, 255), (189, 147, 249, 255)
-            draw.ellipse([(10, 10), (246, 246)], fill=bg_color)
-            draw.rounded_rectangle([(64, 70), (130, 110)], radius=8, fill=folder_back)
-            draw.rounded_rectangle([(64, 90), (192, 180)], radius=12, fill=folder_back)
-            draw.rounded_rectangle([(48, 110), (208, 190)], radius=12, fill=folder_front)
+            draw.ellipse([(10, 10), (246, 246)], fill=(40, 42, 54, 255))
             png_path.parent.mkdir(parents=True, exist_ok=True)
             img.save(png_path, format="PNG")
             img.save(ico_path, format="ICO")
         except Exception: pass
 
     def _show_main_window(self):
-        try:
-            self.splash.pb.stop()
-            self.splash.destroy()
+        try: self.splash.destroy()
         except: pass
         self.deiconify()
 
@@ -220,7 +206,6 @@ class App(ctk.CTk):
             on_toggle_subfolders=lambda enabled: actions.toggle_subfolders(self, enabled),
         )
         self.organizer_panel.grid(row=0, column=0, sticky="ns", padx=(18, 10), pady=(0, 18))
-        self.organizer_panel.configure(width=320)
 
         right = ctk.CTkFrame(frame, corner_radius=0, fg_color=DR_BG)
         right.grid(row=0, column=1, sticky="nsew", padx=(10, 18), pady=(0, 18))
@@ -232,88 +217,66 @@ class App(ctk.CTk):
 
         self.tabs = ctk.CTkTabview(right, fg_color=DR_BG)
         self.tabs.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
-
         self.dashboard_view = DashboardView(self.tabs.add("Dashboard"))
         self.dashboard_view.pack(fill="both", expand=True)
         self.preview_view = PreviewView(self.tabs.add("Preview"))
         self.preview_view.pack(fill="both", expand=True)
-        
-        # Duplicates tab removed here
-        
-        self.logs_view = LogsView(self.tabs.add("Logs"))
-        self.logs_view.pack(fill="both", expand=True)
         return frame
 
     def _build_page_renamer(self, parent) -> ctk.CTkFrame:
-        self.renamer_page = RenamerPage(
-            parent,
+        self.renamer_page = RenamerPage(parent, 
             on_choose_folder=lambda: actions.renamer_choose_folder(self),
             on_preview=lambda: actions.renamer_preview(self),
-            on_apply=lambda: actions.renamer_apply(self),
-        )
+            on_apply=lambda: actions.renamer_apply(self))
         return self.renamer_page
 
     def _build_page_chunker(self, parent) -> ctk.CTkFrame:
-        self.chunker_page = ChunkerPage(
-            parent,
+        self.chunker_page = ChunkerPage(parent,
             on_choose_folder=lambda: actions.chunker_choose_folder(self),
             on_preview=lambda: actions.chunker_preview(self),
-            on_apply=lambda: actions.chunker_apply(self),
-        )
+            on_apply=lambda: actions.chunker_apply(self))
         return self.chunker_page
 
     def _build_page_flattener(self, parent) -> ctk.CTkFrame:
-        self.flattener_page = FlattenerPage(
-            parent,
+        self.flattener_page = FlattenerPage(parent,
             on_choose_folder=lambda: actions.flattener_choose_folder(self),
             on_preview=lambda: actions.flattener_preview(self),
-            on_apply=lambda: actions.flattener_apply(self),
-        )
+            on_apply=lambda: actions.flattener_apply(self))
         return self.flattener_page
 
     def _build_page_unzipper(self, parent) -> ctk.CTkFrame:
-        self.unzipper_page = UnzipperPage(
-            parent,
+        self.unzipper_page = UnzipperPage(parent,
             on_choose_folder=lambda: actions.unzipper_choose_folder(self),
             on_refresh=lambda: actions.unzipper_refresh(self),
-            on_extract_selected=lambda paths: actions.unzipper_extract_selected(self, paths),
-        )
+            on_extract_selected=lambda paths: actions.unzipper_extract_selected(self, paths))
         return self.unzipper_page
 
     def _build_page_pdf(self, parent) -> ctk.CTkFrame:
-        self.pdf_page = PdfPage(
-            parent,
+        self.pdf_page = PdfPage(parent,
             on_choose_folder=lambda: actions.pdf_choose_folder(self),
             on_refresh=lambda: actions.pdf_refresh(self),
-            on_convert=lambda paths: actions.pdf_convert_selected(self, paths),
-        )
+            on_convert=lambda paths: actions.pdf_convert_selected(self, paths))
         return self.pdf_page
 
     def _build_page_dateorg(self, parent) -> ctk.CTkFrame:
-        self.dateorg_page = DateOrgPage(
-            parent,
+        self.dateorg_page = DateOrgPage(parent,
             on_choose_folder=lambda: actions.dateorg_choose_folder(self),
             on_preview=lambda: actions.dateorg_preview(self),
-            on_apply=lambda: actions.dateorg_apply(self),
-        )
+            on_apply=lambda: actions.dateorg_apply(self))
         return self.dateorg_page
 
     def _build_page_empty_folders(self, parent) -> ctk.CTkFrame:
-        self.empty_folders_page = EmptyFoldersPage(
-            parent,
+        self.empty_folders_page = EmptyFoldersPage(parent,
             on_choose_folder=lambda: actions.empty_folders_choose_folder(self),
             on_refresh=lambda: actions.empty_folders_refresh(self),
-            on_delete_selected=lambda paths: actions.empty_folders_delete_selected(self, paths),
-        )
+            on_delete_selected=lambda paths: actions.empty_folders_delete_selected(self, paths))
         return self.empty_folders_page
 
     def _build_page_large_files(self, parent) -> ctk.CTkFrame:
-        self.large_files_page = LargeFilesPage(
-            parent,
+        self.large_files_page = LargeFilesPage(parent,
             on_choose_folder=lambda: actions.large_files_choose_folder(self),
             on_refresh=lambda min_mb: actions.large_files_refresh(self, min_mb),
-            on_delete_selected=lambda paths: actions.large_files_delete_selected(self, paths),
-        )
+            on_delete_selected=lambda paths: actions.large_files_delete_selected(self, paths))
         return self.large_files_page
 
     def _build_page_settings(self, parent) -> ctk.CTkFrame:
@@ -321,12 +284,7 @@ class App(ctk.CTk):
         return self.settings_page
 
     def _build_page_about(self, parent) -> ctk.CTkFrame:
-        info = get_project_info()
-        self.about_page = AboutPage(
-            parent,
-            project_info=info,
-            on_open_github=lambda url: actions.open_github(self, url)
-        )
+        self.about_page = AboutPage(parent, project_info=get_project_info(), on_open_github=lambda url: actions.open_github(self, url))
         return self.about_page
 
     def switch_page(self, page_name: str) -> None:
@@ -334,17 +292,26 @@ class App(ctk.CTk):
         if self._current_page: self.pages[self._current_page].grid_forget()
         self.pages[page_name].grid(row=0, column=0, sticky="nsew")
         self._current_page = page_name
-        self.topbar_view.set_title(page_name if page_name != "Organizer" else "Organizer")
+        self.topbar_view.set_title(page_name)
 
-    def toggle_sidebar(self) -> None:
-        """Disabled."""
-        pass
+    def toggle_terminal(self) -> None:
+        """Shows or hides the bottom terminal console."""
+        if self._terminal_visible:
+            self.logs_view.grid_forget()
+            self._terminal_visible = False
+        else:
+            self.logs_view.grid(row=2, column=0, sticky="ew", padx=18, pady=(0, 18))
+            self._terminal_visible = True
 
     def set_status(self, s: str) -> None:
         self.topbar_view.set_status(s)
 
     def log(self, s: str, level: str = "INFO") -> None:
-        if hasattr(self, "logs_view"): self.logs_view.log(s, level=level)
+        """
+        Global logging method.
+        """
+        if hasattr(self, "logs_view"): 
+            self.logs_view.log(s, level=level)
 
     @staticmethod
     def human_bytes(n: int) -> str:

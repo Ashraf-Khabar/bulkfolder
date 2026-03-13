@@ -1,62 +1,77 @@
 from __future__ import annotations
-
 import customtkinter as ctk
-from ..theme import DR_SURFACE, DR_BORDER, DR_TEXT, DR_MUTED
-
+from datetime import datetime
+from ..theme import DR_SURFACE, DR_TEXT, DR_MUTED, DR_BORDER, DR_PURPLE, DR_BG
 
 class LogsView(ctk.CTkFrame):
-    def __init__(self, master):
-        super().__init__(master, corner_radius=0, fg_color="transparent")
+    """
+    A terminal-like log console with a black background and colored output.
+    """
+    def __init__(self, master, on_close=None, **kwargs):
+        super().__init__(master, fg_color="#000000", corner_radius=8, border_width=1, border_color=DR_BORDER, **kwargs)
+        self.on_close = on_close
 
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=1)
-
-        self.box = ctk.CTkTextbox(
-            self,
-            fg_color=DR_SURFACE,
-            border_color=DR_BORDER,
-            text_color=DR_TEXT,
-            corner_radius=12,
+        # Header bar
+        self.header = ctk.CTkFrame(self, fg_color="#1a1b26", height=30, corner_radius=0)
+        self.header.pack(fill="x", padx=0, pady=0)
+        
+        self.title_label = ctk.CTkLabel(
+            self.header, 
+            text=" SYSTEM TERMINAL ", 
+            font=ctk.CTkFont(family="Consolas", size=11, weight="bold"), 
+            text_color="#7aa2f7"
         )
-        self.box.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        self.title_label.pack(side="left", padx=10)
 
-        # Bigger monospace font
-        self._set_console_font(self.box, size=13)
+        self.close_btn = ctk.CTkButton(
+            self.header,
+            text="Collapse _",
+            width=80,
+            height=22,
+            fg_color="#343b58",
+            hover_color="#444b6a",
+            text_color="#c0caf5",
+            font=ctk.CTkFont(family="Consolas", size=10),
+            command=self.on_close
+        )
+        self.close_btn.pack(side="right", padx=5, pady=4)
 
-        # Underlying tk.Text for tags
-        self._text = self.box._textbox
-
-        # Sophisticated colors
-        self._text.tag_configure("DEBUG", foreground=DR_MUTED)
-        self._text.tag_configure("INFO", foreground=DR_TEXT)
-        self._text.tag_configure("WARN", foreground="#f1fa8c")
-        self._text.tag_configure("ERROR", foreground="#ff5555")
-        self._text.tag_configure("SUCCESS", foreground="#50fa7b")
-
-        self.set_read_only(True)
-
-    @staticmethod
-    def _set_console_font(widget: ctk.CTkTextbox, size: int = 13) -> None:
-        try:
-            widget.configure(font=("Cascadia Mono", size))
-        except Exception:
-            widget.configure(font=("Consolas", size))
-
-    def set_read_only(self, read_only: bool) -> None:
-        self.box.configure(state="disabled" if read_only else "normal")
-
-    def clear(self) -> None:
-        self.box.configure(state="normal")
-        self.box.delete("1.0", "end")
-        self.box.configure(state="disabled")
+        # Text area
+        self.text_area = ctk.CTkTextbox(
+            self,
+            fg_color="#000000",
+            text_color="#c0caf5",
+            font=ctk.CTkFont(family="Consolas", size=12),
+            wrap="word",
+            border_width=0,
+            height=160
+        )
+        self.text_area.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        self.text_area.tag_config("timestamp", foreground="#565f89")
+        self.text_area.tag_config("INFO", foreground="#7dcfff")
+        self.text_area.tag_config("SUCCESS", foreground="#9ece6a") 
+        self.text_area.tag_config("WARNING", foreground="#e0af68") 
+        self.text_area.tag_config("ERROR", foreground="#f7768e")   
+        self.text_area.tag_config("DEBUG", foreground="#bb9af7")   
+        
+        self.text_area.configure(state="disabled")
 
     def log(self, message: str, level: str = "INFO") -> None:
-        level = (level or "INFO").upper()
-        if level not in {"INFO", "DEBUG", "WARN", "ERROR", "SUCCESS"}:
-            level = "INFO"
+        """Appends a new log entry."""
+        self.text_area.configure(state="normal")
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        level = level.upper()
 
-        self.box.configure(state="normal")
-        self._text.insert("end", f"[{level}] ", level)
-        self._text.insert("end", message + "\n", level)
-        self._text.see("end")
-        self.box.configure(state="disabled")
+        self.text_area.insert("end", f"[{timestamp}] ", "timestamp")
+        self.text_area.insert("end", f"[{level}] ", level)
+        self.text_area.insert("end", f"{message}\n")
+            
+        self.text_area.see("end")
+        self.text_area.configure(state="disabled")
+
+    def clear(self) -> None:
+        """Clears the terminal."""
+        self.text_area.configure(state="normal")
+        self.text_area.delete("1.0", "end")
+        self.text_area.configure(state="disabled")
