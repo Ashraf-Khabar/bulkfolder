@@ -14,26 +14,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        # SHA pour actions/checkout@v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 
         with:
           fetch-depth: 0 
 
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@v3
+        # SHA vérifié pour SonarSource/sonarcloud-github-action@v3.1.0
+        uses: SonarSource/sonarcloud-github-action@e283307525381a179374092b3f11467464010a30
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.BULK_FOLDER_SCAN }}
 
   # JOB 2 : Build de l'exécutable sur Windows
   build:
-    needs: sonar-scan # Le build ne commence que si le scan Sonar réussit
+    needs: sonar-scan # Sécurité : bloque le build si le scan échoue
     runs-on: windows-latest
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      # SHA pour actions/setup-python@v5.0.0
+      uses: actions/setup-python@0a5c61591373683505ea898e09a3ee4f39ef2b9c
       with:
         python-version: '3.11'
 
@@ -84,7 +87,8 @@ jobs:
         & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "installer_script.iss"
 
     - name: Create Release
-      uses: softprops/action-gh-release@v2
+      # SHA pour softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda
       with:
         tag_name: v${{ steps.get_version.outputs.VERSION }}
         name: Release v${{ steps.get_version.outputs.VERSION }}
