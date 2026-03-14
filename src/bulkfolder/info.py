@@ -5,28 +5,28 @@ import os
 
 def get_project_info() -> dict:
     """
-    Reads project_info.xml from the project root to retrieve version and configuration.
-    Supports both development environment and compiled executable paths.
+    Retrieves project metadata from project_info.xml.
+    Handles path resolution for both development and PyInstaller environments.
     """
-    # Default fallback information
+    # Default metadata fallback
     info = {
         "name": "BulkFolder",
-        "version": "v1.7.10",
+        "version": "v1.5.0",
         "description": "Organize & Rename safely",
         "author": "Achraf KHABAR",
-        "repository": "https://github.com/ZylosCore/bulkfolder"
+        "repository": "https://github.com/Ashraf-Khabar/bulkfolder"
     }
     
     try:
-        # Check if the application is running as a bundled executable
+        # Determine the base directory
+        # sys._MEIPASS is used by PyInstaller for bundled resources
         if getattr(sys, 'frozen', False):
-            # If frozen, the base path is the temporary folder created by the executable
-            base_path = Path(sys._MEIPASS)
+            base_dir = Path(sys._MEIPASS)
         else:
-            # If in development, move up from src/bulkfolder/info.py to the root
-            base_path = Path(__file__).resolve().parent.parent.parent
+            # Navigate up from src/bulkfolder/info.py to the root
+            base_dir = Path(__file__).resolve().parent.parent.parent
 
-        xml_path = base_path / "project_info.xml"
+        xml_path = base_dir / "project_info.xml"
         
         if xml_path.exists():
             tree = ET.parse(xml_path)
@@ -34,9 +34,9 @@ def get_project_info() -> dict:
             for child in root:
                 info[child.tag] = child.text
         else:
-            print(f"Warning: project_info.xml not found at {xml_path}")
+            print(f"File not found: {xml_path}")
             
-    except Exception as e:
-        print(f"Error reading XML file: {e}")
+    except Exception as error:
+        print(f"Failed to parse project_info.xml: {error}")
         
     return info
