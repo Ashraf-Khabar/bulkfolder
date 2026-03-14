@@ -7,13 +7,30 @@ from .planner import build_plan
 from .undo import undo_last
 
 DEFAULT_MAPPING = {
-    "jpg": "Images", "jpeg": "Images", "png": "Images", "gif": "Images", "webp": "Images",
-    "pdf": "PDFs",
-    "doc": "Docs", "docx": "Docs", "txt": "Docs", "md": "Docs",
-    "zip": "Archives", "rar": "Archives", "7z": "Archives",
-    "mp3": "Audio", "wav": "Audio",
-    "mp4": "Video", "mov": "Video",
-    "py" : "Code", "python" : "Code", "xsls" : "Sheets", "csv" : "Sheets", "exe" : "Programs",
+    "jpg": "Images", "jpeg": "Images", "png": "Images", "gif": "Images", "webp": "Images", 
+    "bmp": "Images", "tiff": "Images", "svg": "Images", "ico": "Images", "raw": "Images", "heic": "Images",
+    "pdf": "PDFs", "doc": "Docs", "docx": "Docs", "txt": "Docs", "md": "Docs", 
+    "rtf": "Docs", "odt": "Docs",
+    "xls": "Spreadsheets", "xlsx": "Spreadsheets", "csv": "Spreadsheets", "ods": "Spreadsheets",
+    "ppt": "Presentations", "pptx": "Presentations", "odp": "Presentations", "key": "Presentations",
+    "zip": "Archives", "rar": "Archives", "7z": "Archives", "tar": "Archives", "gz": "Archives", 
+    "bz2": "Archives", "xz": "Archives", "iso": "Archives",
+    "mp3": "Audio", "wav": "Audio", "flac": "Audio", "aac": "Audio", "ogg": "Audio", 
+    "wma": "Audio", "m4a": "Audio",
+    "mp4": "Video", "mov": "Video", "avi": "Video", "mkv": "Video", "wmv": "Video", 
+    "flv": "Video", "webm": "Video", "m4v": "Video",
+    "py": "Code", "js": "Code", "html": "Code", "css": "Code", "java": "Code", 
+    "c": "Code", "cpp": "Code", "cs": "Code", "php": "Code", "rb": "Code", 
+    "go": "Code", "rs": "Code", "ts": "Code", "swift": "Code", "kt": "Code",
+    "sh": "Code", "bat": "Code", "ps1": "Code",
+    "json": "Data", "xml": "Data", "yaml": "Data", "yml": "Data", "sql": "Data", 
+    "db": "Data", "sqlite": "Data", "ini": "Data", "env": "Data", "toml": "Data",
+    "psd": "Design", "ai": "Design", "xd": "Design", "fig": "Design", "sketch": "Design", 
+    "indd": "Design", "blend": "Design", "fbx": "Design", "obj": "Design",
+    "exe": "Executables", "msi": "Executables", "apk": "Executables", "app": "Executables", 
+    "dmg": "Executables", "deb": "Executables", "rpm": "Executables",
+    "ttf": "Fonts", "otf": "Fonts", "woff": "Fonts", "woff2": "Fonts",
+    "epub": "Books", "mobi": "Books", "azw3": "Books"
 }
 
 def main() -> None:
