@@ -15,16 +15,25 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Important pour SonarCloud (besoin de l'historique git)
 
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: '3.11' #
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pyinstaller customtkinter matplotlib
+        pip install pyinstaller customtkinter matplotlib #
+
+    # --- NOUVELLE PHASE : SONARCLOUD SCAN ---
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Automatique
+        SONAR_TOKEN: ${{ secrets.BULK_FOLDER_SCAN }} # Votre variable personnalisée
 
     - name: Get version from XML
       id: get_version
@@ -32,7 +41,7 @@ jobs:
       run: |
         [xml]$project = Get-Content "project_info.xml"
         $version = $project.project.version
-        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT #
 
     - name: Create version_info.txt
       shell: powershell
@@ -54,18 +63,18 @@ jobs:
           VarFileInfo([VarStruct(u'Translation', [1033, 1200])])]
         )
         "@
-        $template | Out-File -FilePath version_info.txt -Encoding utf8
+        $template | Out-File -FilePath version_info.txt -Encoding utf8 #
 
     - name: Build EXE with PyInstaller
       run: |
         echo "import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src')); from bulkfolder.ui.main import main; main()" > run.py
-        python -m PyInstaller --noconfirm --windowed --name "BulkFolder" --icon="src/assets/logo.ico" --add-data="src/assets;assets" --paths="src" --version-file="version_info.txt" --collect-all customtkinter run.py
+        python -m PyInstaller --noconfirm --windowed --name "BulkFolder" --icon="src/assets/logo.ico" --add-data="src/assets;assets" --paths="src" --version-file="version_info.txt" --collect-all customtkinter run.py #
 
     - name: Compile Inno Setup
       shell: pwsh
       run: |
         $ver = "${{ steps.get_version.outputs.VERSION }}"
-        & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "installer_script.iss"
+        & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "installer_script.iss" #
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
@@ -74,4 +83,4 @@ jobs:
         name: Release v${{ steps.get_version.outputs.VERSION }}
         files: Output/*.exe
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} #
