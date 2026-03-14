@@ -33,7 +33,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.BULK_FOLDER_SCAN }}
 
-  build and deploy:
+  build:
     needs: sonar-scan
     runs-on: windows-latest
     steps:
@@ -67,12 +67,16 @@ jobs:
         run: |
           $ver = "${{ steps.get_version.outputs.VERSION }}"
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "installer_script.iss"
-   
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.get_version.outputs.VERSION }}
-          name: Release v${{ steps.get_version.outputs.VERSION }}
-          files: Output/*.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+   deploy:
+      needs: sonar-scan
+      runs-on: windows-latest
+      steps:
+         - name: Create Release
+           uses: softprops/action-gh-release@v2
+           with:
+             tag_name: v${{ steps.get_version.outputs.VERSION }}
+             name: Release v${{ steps.get_version.outputs.VERSION }}
+             files: Output/*.exe
+           env:
+             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
