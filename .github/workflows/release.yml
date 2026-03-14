@@ -33,7 +33,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.BULK_FOLDER_SCAN }}
 
-  build:
+  build and deploy:
     needs: sonar-scan
     runs-on: windows-latest
     steps:
@@ -62,8 +62,6 @@ jobs:
         run: |
           echo "import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src')); from bulkfolder.ui.main import main; main()" > run.py
           python -m PyInstaller --noconfirm --windowed --name "BulkFolder" --icon="src/assets/logo.ico" --add-data="src/assets;assets" --paths="src" --version-file="version_info.txt" --collect-all customtkinter run.py
-
-   deploy:
       - name: Compile Inno Setup
         shell: pwsh
         run: |
