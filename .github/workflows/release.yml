@@ -3,7 +3,7 @@ name: Build and Release BulkFolder
 on:
   push:
     branches:
-      - main
+      - main      
 
 permissions:
   contents: write
