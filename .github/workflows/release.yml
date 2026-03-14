@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  # JOB 1 : Analyse de code sur Linux (Nécessaire pour l'action Docker SonarCloud)
+  # JOB 1 : Analyse de code sur Linux (Obligatoire pour l'action Docker SonarCloud)
   sonar-scan:
     runs-on: ubuntu-latest
     steps:
@@ -22,11 +22,11 @@ jobs:
         uses: SonarSource/sonarcloud-github-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.BULK_FOLDER_SCAN }}
+          SONAR_TOKEN: ${{ secrets.BULK_FOLDER_SCAN }} # Assurez-vous que ce nom est EXACT
 
   # JOB 2 : Build de l'exécutable sur Windows
   build:
-    needs: sonar-scan # Le build ne commence que si le scan Sonar est validé
+    needs: sonar-scan # Bloque le build si le scan échoue
     runs-on: windows-latest
     steps:
     - name: Checkout code
