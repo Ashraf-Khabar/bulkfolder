@@ -1,9 +1,9 @@
 name: Build and Release BulkFolder
-   
+
 on:
   push:
     branches:
-      - main      
+      - main
 
 permissions:
   contents: write
@@ -62,21 +62,18 @@ jobs:
         run: |
           echo "import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src')); from bulkfolder.ui.main import main; main()" > run.py
           python -m PyInstaller --noconfirm --windowed --name "BulkFolder" --icon="src/assets/logo.ico" --add-data="src/assets;assets" --paths="src" --version-file="version_info.txt" --collect-all customtkinter run.py
+
       - name: Compile Inno Setup
         shell: pwsh
         run: |
           $ver = "${{ steps.get_version.outputs.VERSION }}"
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "installer_script.iss"
-          
-   deploy:
-      needs: sonar-scan
-      runs-on: windows-latest
-      steps:
-         - name: Create Release
-           uses: softprops/action-gh-release@v2
-           with:
-             tag_name: v${{ steps.get_version.outputs.VERSION }}
-             name: Release v${{ steps.get_version.outputs.VERSION }}
-             files: Output/*.exe
-           env:
-             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.get_version.outputs.VERSION }}
+          name: Release v${{ steps.get_version.outputs.VERSION }}
+          files: Output/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
