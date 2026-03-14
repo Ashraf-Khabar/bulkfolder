@@ -63,12 +63,13 @@ jobs:
           echo "import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src')); from bulkfolder.ui.main import main; main()" > run.py
           python -m PyInstaller --noconfirm --windowed --name "BulkFolder" --icon="src/assets/logo.ico" --add-data="src/assets;assets" --paths="src" --version-file="version_info.txt" --collect-all customtkinter run.py
 
+   deploy:
       - name: Compile Inno Setup
         shell: pwsh
         run: |
           $ver = "${{ steps.get_version.outputs.VERSION }}"
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "installer_script.iss"
-
+   
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
