@@ -1,5 +1,5 @@
 name: Build and Release BulkFolder
-
+   
 on:
   push:
     branches:
