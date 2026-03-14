@@ -31,7 +31,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.BULK_FOLDER_SCAN }}
         with:
-          # Disabling coverage requirement if no tests are present
+          # Disabling coverage requirement during scan to pass the Quality Gate
           args: >
             -Dsonar.python.coverage.reportPaths=
             -Dsonar.cpd.exclusions=src/bulkfolder/ui/views/**
@@ -64,7 +64,7 @@ jobs:
       - name: Build EXE with PyInstaller
         run: |
           echo "import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src')); from bulkfolder.ui.main import main; main()" > run.py
-          # IMPORTANT: We added project_info.xml to --add-data to fix your version bug
+          # Added project_info.xml to --add-data to fix the version display bug in the compiled app
           python -m PyInstaller --noconfirm --windowed --name "BulkFolder" --icon="src/assets/logo.ico" --add-data="src/assets;assets" --add-data="project_info.xml;." --paths="src" --version-file="version_info.txt" --collect-all customtkinter run.py
 
       - name: Compile Inno Setup
