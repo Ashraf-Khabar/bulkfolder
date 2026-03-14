@@ -11,7 +11,7 @@ def get_project_info() -> dict:
     # Default metadata fallback
     info = {
         "name": "BulkFolder",
-        "version": "v1.5.0",
+        "version": "v1.7.11",
         "description": "Organize & Rename safely",
         "author": "Achraf KHABAR",
         "repository": "https://github.com/Ashraf-Khabar/bulkfolder"
