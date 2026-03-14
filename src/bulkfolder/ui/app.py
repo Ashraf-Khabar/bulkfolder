@@ -72,7 +72,7 @@ class SplashScreen(ctk.CTkToplevel):
 
 class App(ctk.CTk):
     """
-    The main application window with a persistent bottom Terminal and Topbar toggle.
+    The main application window with multithreaded operations support.
     """
     def __init__(self):
         super().__init__()
@@ -137,7 +137,7 @@ class App(ctk.CTk):
         self.content_area.grid_rowconfigure(1, weight=1) 
         self.content_area.grid_rowconfigure(2, weight=0) 
 
-        # The Topbar now correctly handles the terminal toggle
+        # The Topbar handles status and loading animations
         self.topbar_view = TopbarView(self.content_area, on_toggle_sidebar=self.toggle_terminal)
         self.topbar_view.grid(row=0, column=0, sticky="ew", padx=18, pady=(18, 8))
 
@@ -150,6 +150,9 @@ class App(ctk.CTk):
         self.logs_view = LogsView(self.content_area, on_close=self.toggle_terminal)
         self.logs_view.grid(row=2, column=0, sticky="ew", padx=18, pady=(0, 18))
         self._terminal_visible = True
+        
+        # Link log view to state for global access
+        self.ui_state.log_view = self.logs_view
 
         self.pages: dict[str, ctk.CTkFrame] = {}
         self.pages["Organizer"] = self._build_page_organizer(self.page_container)
@@ -304,14 +307,14 @@ class App(ctk.CTk):
             self._terminal_visible = True
 
     def set_status(self, s: str) -> None:
+        """Updates the status in the top bar."""
         self.topbar_view.set_status(s)
 
     def log(self, s: str, level: str = "INFO") -> None:
         """
-        Global logging method.
+        Global logging method. Thread-safe log through UIState.
         """
-        if hasattr(self, "logs_view"): 
-            self.logs_view.log(s, level=level)
+        self.ui_state.log(s, level=level)
 
     @staticmethod
     def human_bytes(n: int) -> str:

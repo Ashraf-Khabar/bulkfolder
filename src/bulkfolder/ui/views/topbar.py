@@ -19,6 +19,17 @@ class TopbarView(ctk.CTkFrame):
         )
         self.title_label.pack(side="left")
 
+        # Loading Spinner (Progress bar indeterminate)
+        # Fix: fg_color cannot be "transparent" for CTkProgressBar
+        self.loading_bar = ctk.CTkProgressBar(
+            self, 
+            width=100, 
+            height=4, 
+            mode="indeterminate", 
+            progress_color=DR_PURPLE,
+            fg_color=DR_BG # Use the application background color instead of transparent
+        )
+        
         # Right Area
         self.right_container = ctk.CTkFrame(self, fg_color="transparent")
         self.right_container.pack(side="right", fill="y")
@@ -33,7 +44,7 @@ class TopbarView(ctk.CTkFrame):
             hover_color=DR_BORDER,
             text_color=DR_PURPLE,
             font=ctk.CTkFont(family="Consolas", size=12, weight="bold"),
-            command=self.on_toggle_sidebar # Link to the toggle function
+            command=self.on_toggle_sidebar
         )
         self.term_btn.pack(side="right", padx=(15, 0))
 
@@ -53,3 +64,12 @@ class TopbarView(ctk.CTkFrame):
     def set_status(self, status: str) -> None:
         """Updates the status message."""
         self.status_label.configure(text=status)
+
+    def show_loading(self, show: bool) -> None:
+        """Shows or hides the loading animation."""
+        if show:
+            self.loading_bar.pack(side="left", padx=20)
+            self.loading_bar.start()
+        else:
+            self.loading_bar.stop()
+            self.loading_bar.pack_forget()

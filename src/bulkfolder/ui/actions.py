@@ -4,6 +4,7 @@ import os
 import sys
 import shutil
 import webbrowser
+import threading
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox
@@ -76,55 +77,88 @@ def choose_folder(app) -> None:
 def toggle_subfolders(app, enabled: bool) -> None:
     app.ui_state.include_subfolders = enabled
 
-def toggle_move_by_ext(app, enabled: bool) -> None:
-    app.ui_state.move_by_ext = enabled
-
 def scan_and_plan(app) -> None:
-    """Scan folder and build virtual plan without Find/Replace rules."""
+    """Scan folder and build virtual plan in a background thread."""
     root = getattr(app.ui_state, "root", None)
     if not root:
         messagebox.showwarning("BulkFolder", "Please choose a folder first.")
         return
     
     app.set_status("Scanning...")
+    app.topbar_view.show_loading(True)
     
-    # 1. Scan drive
-    scanned = scan_folder(app.ui_state.root, include_subfolders=app.ui_state.include_subfolders)
-    app.last_scan = scanned
+    def run_scan():
+        try:
+            # 1. Heavy Scanning Logic
+            scanned = scan_folder(app.ui_state.root, include_subfolders=app.ui_state.include_subfolders)
+            move_rule = MoveByExtensionRule(DEFAULT_MAPPING) if app.ui_state.move_by_ext else None
+            plan = build_plan(app.ui_state.root, scanned, replace_rule=None, move_rule=move_rule)
+            
+            # Statistics calculation
+            files_count = sum(1 for x in scanned if x.is_file)
+            planned = sum(1 for it in plan.items if it.action.value != "skip")
+            conflicts = sum(1 for it in plan.items if it.conflict)
+            total_size = sum(x.size for x in scanned if x.is_file)
 
-    # 2. Apply Move rule only (Find/Replace removed)
-    move_rule = MoveByExtensionRule(DEFAULT_MAPPING) if app.ui_state.move_by_ext else None
-    plan = build_plan(app.ui_state.root, scanned, replace_rule=None, move_rule=move_rule)
-    app.last_plan = plan
+            # 2. Update UI back on main thread
+            app.after(0, lambda: finalize_scan(scanned, plan, files_count, planned, conflicts, total_size))
+            
+        except Exception as e:
+            app.after(0, lambda: handle_scan_error(str(e)))
 
-    # 3. Calculate statistics
-    files_count = sum(1 for x in scanned if x.is_file)
-    planned = sum(1 for it in plan.items if it.action.value != "skip")
-    conflicts = sum(1 for it in plan.items if it.conflict)
-    total_size = sum(x.size for x in scanned if x.is_file)
+    def finalize_scan(scanned, plan, files_count, planned, conflicts, total_size):
+        app.last_scan = scanned
+        app.last_plan = plan
+        app.cards_view.set_values(str(files_count), str(planned), str(conflicts), app.human_bytes(total_size))
+        app.preview_view.render(plan)
+        app.dashboard_view.render(scanned, mapping=DEFAULT_MAPPING)
+        
+        app.organizer_panel.set_apply_enabled((not plan.has_conflicts) and planned > 0)
+        app.organizer_panel.set_undo_enabled(True)
+        app.tabs.set("Preview")
+        
+        app.topbar_view.show_loading(False)
+        app.set_status("Ready")
+        app.log(f"Scan complete: {files_count} files found.", level="INFO")
 
-    # 4. Update UI
-    app.cards_view.set_values(str(files_count), str(planned), str(conflicts), app.human_bytes(total_size))
-    app.preview_view.render(plan)
-    app.dashboard_view.render(scanned, mapping=DEFAULT_MAPPING)
-    
-    app.organizer_panel.set_apply_enabled((not plan.has_conflicts) and planned > 0)
-    app.organizer_panel.set_undo_enabled(True)
-    app.tabs.set("Preview")
+    def handle_scan_error(error_msg: str):
+        app.topbar_view.show_loading(False)
+        app.set_status("Error during scan.")
+        messagebox.showerror("BulkFolder", f"Scan failed: {error_msg}")
+
+    # Start the background thread
+    threading.Thread(target=run_scan, daemon=True).start()
 
 def apply_plan(app) -> None:
-    """Physically apply changes."""
+    """Physically apply changes in background."""
     if not app.last_plan or sum(1 for it in app.last_plan.items if it.action.value != "skip") == 0: return
     if app.last_plan.has_conflicts:
         messagebox.showerror("BulkFolder", "Plan has conflicts.")
         return
+    
     if _ask_confirm(app, "BulkFolder", "Apply changes?"):
-        try:
-            n = exec_apply_plan(app.last_plan, allow_conflicts=False)
-            app.set_status("Applied.")
-            scan_and_plan(app)
-        except Exception as e:
-            messagebox.showerror("BulkFolder", f"Apply failed:\n{e}")
+        app.set_status("Applying changes...")
+        app.topbar_view.show_loading(True)
+
+        def run_apply():
+            try:
+                # Execution with our custom logging callback (UIState.log)
+                n = exec_apply_plan(app.last_plan, allow_conflicts=False, on_progress=app.log)
+                app.after(0, lambda: finalize_apply())
+            except Exception as e:
+                app.after(0, lambda: handle_apply_error(str(e)))
+
+        def finalize_apply():
+            app.topbar_view.show_loading(False)
+            app.set_status("Ready")
+            scan_and_plan(app) # Refresh after apply
+
+        def handle_apply_error(error_msg: str):
+            app.topbar_view.show_loading(False)
+            app.set_status("Error applying.")
+            messagebox.showerror("BulkFolder", f"Apply failed: {error_msg}")
+
+        threading.Thread(target=run_apply, daemon=True).start()
 
 def undo_last_ops(app) -> None:
     """Revert last applied operations."""
@@ -137,27 +171,29 @@ def undo_last_ops(app) -> None:
         except Exception as e:
             messagebox.showerror("BulkFolder", f"Undo failed:\n{e}")
 
-# Duplicates action remains in core but no longer called from Organizer Panel
 def find_duplicates_action(app) -> None:
-    """Scans for duplicate files."""
+    """Scans for duplicate files in background."""
     root = getattr(app.ui_state, "root", None)
     if not root: return
     
-    min_kb = int(app.settings.duplicate_min_size_kb) if getattr(app, "settings", None) else 1
-    scanned = app.last_scan or scan_folder(app.ui_state.root, include_subfolders=app.ui_state.include_subfolders)
-    app.last_scan = scanned
-    
-    groups = find_duplicates(scanned, min_size_bytes=min_kb * 1024)
-    ui_groups = [[str(p) for p in grp] for grp in groups]
-    
-    app.duplicates_view.render(ui_groups)
-    app.tabs.set("Duplicates")
+    app.set_status("Finding duplicates...")
+    app.topbar_view.show_loading(True)
 
+    def run_duplicates():
+        min_kb = int(app.settings.duplicate_min_size_kb) if getattr(app, "settings", None) else 1
+        scanned = app.last_scan or scan_folder(app.ui_state.root, include_subfolders=app.ui_state.include_subfolders)
+        groups = find_duplicates(scanned, min_size_bytes=min_kb * 1024)
+        ui_groups = [[str(p) for p in grp] for grp in groups]
+        
+        app.after(0, lambda: finalize_duplicates(ui_groups))
 
-# ==========================================
-# OTHER PAGES (CHUNKERS, FLATTENER, ETC.)
-# ==========================================
-# (Logic remains identical to original)
+    def finalize_duplicates(ui_groups):
+        app.duplicates_view.render(ui_groups)
+        app.tabs.set("Duplicates")
+        app.topbar_view.show_loading(False)
+        app.set_status("Ready")
+
+    threading.Thread(target=run_duplicates, daemon=True).start()
 
 def chunker_choose_folder(app) -> None:
     path = filedialog.askdirectory()
@@ -190,14 +226,22 @@ def chunker_apply(app) -> None:
     if not plan or not root: return
     if _ask_confirm(app, "Folder Splitter", f"Split this folder into {len(plan)} parts?"):
         app.set_status("Splitting folder...")
-        app.update()
-        success, errors = apply_chunks(root, plan)
-        if errors:
-            messagebox.showwarning("Partial Success", f"Moved: {success}\nErrors: {len(errors)}")
-        else:
-            messagebox.showinfo("Success", f"Successfully chunked folder!")
-        app.chunker_page.render_preview([])
-        app.chunker_plan = []
+        app.topbar_view.show_loading(True)
+        
+        def run_chunk():
+            success, errors = apply_chunks(root, plan)
+            app.after(0, lambda: finalize_chunk(success, errors))
+
+        def finalize_chunk(success, errors):
+            app.topbar_view.show_loading(False)
+            app.set_status("Ready")
+            if errors:
+                messagebox.showwarning("Partial Success", f"Moved: {success}\nErrors: {len(errors)}")
+            else:
+                messagebox.showinfo("Success", f"Successfully chunked folder!")
+            app.chunker_page.render_preview([])
+
+        threading.Thread(target=run_chunk, daemon=True).start()
 
 def flattener_choose_folder(app) -> None:
     path = filedialog.askdirectory()
