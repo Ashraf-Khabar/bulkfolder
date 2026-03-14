@@ -9,28 +9,33 @@ permissions:
   contents: write
 
 jobs:
+  # JOB 1 : Analyse de code sur Linux (Docker est supporté ici)
   sonar-scan:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        # Utilisation du hash SHA pour actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 
         with:
-          fetch-depth: 0
+          fetch-depth: 0 
+
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@v3.1.0
+        # Utilisation du hash SHA pour SonarSource/sonarcloud-github-action
+        uses: SonarSource/sonarcloud-github-action@400171a1b051c0595b433390d4da511654e6074a
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.BULK_FOLDER_SCAN }}
 
+  # JOB 2 : Build de l'exécutable sur Windows
   build:
-    needs: sonar-scan
+    needs: sonar-scan # Le build ne démarre QUE si le scan Sonar réussit
     runs-on: windows-latest
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@82c3513126846c7546603a12903780360a5d2188
       with:
         python-version: '3.11'
 
@@ -81,7 +86,7 @@ jobs:
         & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "installer_script.iss"
 
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@de2c5731105a9687dd2b1f4021029c29c8e5e8a6
       with:
         tag_name: v${{ steps.get_version.outputs.VERSION }}
         name: Release v${{ steps.get_version.outputs.VERSION }}
