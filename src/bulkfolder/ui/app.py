@@ -208,10 +208,8 @@ class App(ctk.CTk):
             
             print("ICO synchronisé avec le PNG (taille max).")
         except Exception as e:
-            print(f"Erreur synchro : {e}")
-            
-        except Exception as e:
-            print(f"Erreur d'agrandissement de l'icône : {e}")
+            print(f"Erreur : {e}")
+
 
     def _show_main_window(self):
         try: self.splash.destroy()
