@@ -5,7 +5,7 @@
 <h1 align="center">
     <br>
       <a href="Bulk folder">
-        <img src="./src/assets/logo.png" width="450" height="400" alt="Bulk folder logo" >
+        <img src="./src/assets/logo_readme.png" width="450" height="400" alt="Bulk folder logo" >
       </a>
     <br>
       Bulk folder

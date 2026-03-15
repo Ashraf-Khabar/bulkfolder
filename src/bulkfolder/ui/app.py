@@ -181,35 +181,37 @@ class App(ctk.CTk):
         ico_path = png_path.with_suffix(".ico")
         
         if not png_path.exists():
-            return # Si tu n'as pas le PNG, on ne peut rien faire
+            return
 
         try:
-            # 1. Ouvrir ton PNG original
+            # On ouvre ton PNG
             img = Image.open(png_path).convert("RGBA")
             
-            # 2. "Auto-crop" : On enlève tout le vide transparent autour du logo
+            # ÉTAPE CLÉ : On enlève les bordures vides si ton PNG en a
             bbox = img.getbbox()
             if bbox:
                 img = img.crop(bbox)
             
-            # 3. Créer un canvas carré de 256x256 (Taille max Windows)
-            size = 256
-            new_img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+            # On crée une liste des tailles standards Windows
+            # La taille 256 est celle du bureau / La taille 32-48 est celle de la barre des tâches
+            sizes = [256, 128, 64, 48, 32, 16]
+            layers = []
             
-            # 4. Redimensionner ton logo pour qu'il touche presque les bords (98% de la taille)
-            inner_size = int(size * 0.98)
-            img.thumbnail((inner_size, inner_size), Image.Resampling.LANCZOS)
+            for s in sizes:
+                # On redimensionne proprement pour chaque taille
+                resized = img.resize((s, s), Image.Resampling.LANCZOS)
+                layers.append(resized)
             
-            # Centrer le logo sur le canvas
-            offset = ((size - img.size[0]) // 2, (size - img.size[1]) // 2)
-            new_img.paste(img, offset, img)
+            # On sauvegarde l'ICO en incluant TOUTES ces couches
+            # C'est ce qui garantit que l'icône "match" le PNG partout
+            layers[0].save(ico_path, format="ICO", append_images=layers[1:])
             
-            # 5. Sauvegarder par-dessus ton .ico avec TOUTES les tailles Windows
-            # C'est la couche (256, 256) qui rend l'icône "grande" sur le bureau
-            new_img.save(ico_path, format="ICO", sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
+            print("ICO synchronisé avec le PNG (taille max).")
+        except Exception as e:
+            print(f"Erreur synchro : {e}")
             
         except Exception as e:
-            print(f"Erreur lors de l'optimisation de l'icône : {e}")
+            print(f"Erreur d'agrandissement de l'icône : {e}")
 
     def _show_main_window(self):
         try: self.splash.destroy()
