@@ -179,15 +179,37 @@ class App(ctk.CTk):
     @staticmethod
     def _ensure_logo_exists(png_path: Path):
         ico_path = png_path.with_suffix(".ico")
-        if png_path.exists() and ico_path.exists(): return
+        
+        if not png_path.exists():
+            return # Si tu n'as pas le PNG, on ne peut rien faire
+
         try:
-            img = Image.new("RGBA", (256, 256), (255, 255, 255, 0))
-            draw = ImageDraw.Draw(img)
-            draw.ellipse([(10, 10), (246, 246)], fill=(40, 42, 54, 255))
-            png_path.parent.mkdir(parents=True, exist_ok=True)
-            img.save(png_path, format="PNG")
-            img.save(ico_path, format="ICO")
-        except Exception: pass
+            # 1. Ouvrir ton PNG original
+            img = Image.open(png_path).convert("RGBA")
+            
+            # 2. "Auto-crop" : On enlève tout le vide transparent autour du logo
+            bbox = img.getbbox()
+            if bbox:
+                img = img.crop(bbox)
+            
+            # 3. Créer un canvas carré de 256x256 (Taille max Windows)
+            size = 256
+            new_img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+            
+            # 4. Redimensionner ton logo pour qu'il touche presque les bords (98% de la taille)
+            inner_size = int(size * 0.98)
+            img.thumbnail((inner_size, inner_size), Image.Resampling.LANCZOS)
+            
+            # Centrer le logo sur le canvas
+            offset = ((size - img.size[0]) // 2, (size - img.size[1]) // 2)
+            new_img.paste(img, offset, img)
+            
+            # 5. Sauvegarder par-dessus ton .ico avec TOUTES les tailles Windows
+            # C'est la couche (256, 256) qui rend l'icône "grande" sur le bureau
+            new_img.save(ico_path, format="ICO", sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
+            
+        except Exception as e:
+            print(f"Erreur lors de l'optimisation de l'icône : {e}")
 
     def _show_main_window(self):
         try: self.splash.destroy()
