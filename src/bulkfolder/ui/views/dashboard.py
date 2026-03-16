@@ -130,7 +130,8 @@ class DashboardView(ctk.CTkFrame):
             self.top_list.insert("end", f"{i:>2}. {f.path.name}   —   {self._human_bytes(f.size)}\n")
 
     def _donut_figure(self, title: str, center_text: str, labels: list[str], values: list[float]) -> Figure:
-        fig = Figure(figsize=(5, 3.2), dpi=100)
+        # OPTIMISATION: DPI réduit à 75 pour un rendu plus fluide et rapide
+        fig = Figure(figsize=(5, 3.2), dpi=75)
         ax = fig.add_subplot(111)
 
         if not values or sum(values) <= 0:
