@@ -6,6 +6,7 @@ from ..theme import DR_SURFACE, DR_TEXT, DR_MUTED, DR_BORDER, DR_PURPLE, DR_BG
 class LogsView(ctk.CTkFrame):
     """
     A terminal-like log console with a black background and colored output.
+    Optimized for fluidity.
     """
     def __init__(self, master, on_close=None, **kwargs):
         super().__init__(master, fg_color="#000000", corner_radius=8, border_width=1, border_color=DR_BORDER, **kwargs)
@@ -58,8 +59,14 @@ class LogsView(ctk.CTkFrame):
         self.text_area.configure(state="disabled")
 
     def log(self, message: str, level: str = "INFO") -> None:
-        """Appends a new log entry."""
+        """Appends a new log entry with buffer management for performance."""
         self.text_area.configure(state="normal")
+        
+        # OPTIMISATION: Limiter le nombre de lignes pour maintenir la fluidité
+        line_count = int(self.text_area.index('end-1c').split('.')[0])
+        if line_count > 500:
+            self.text_area.delete("1.0", "2.0")
+
         timestamp = datetime.now().strftime("%H:%M:%S")
         level = level.upper()
 

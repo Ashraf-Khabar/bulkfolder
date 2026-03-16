@@ -3,7 +3,7 @@ import sys
 import customtkinter as ctk
 
 from pathlib import Path
-from PIL import Image, ImageTk, ImageDraw
+from PIL import Image, ImageTk
 
 # --- Imports: Theme, State, and Logic ---
 from .theme import DR_BG, DR_TEXT, DR_MUTED, DR_SURFACE, DR_BORDER, DR_PURPLE
@@ -75,6 +75,14 @@ class App(ctk.CTk):
     The main application window with multithreaded operations support.
     """
     def __init__(self):
+        # OPTIMISATION: DPI Awareness pour éviter le lag lors du changement d'écran
+        try:
+            if sys.platform.startswith("win"):
+                import ctypes
+                ctypes.windll.shcore.SetProcessDpiAwareness(1)
+        except Exception:
+            pass
+
         super().__init__()
         self.withdraw()
         
@@ -184,32 +192,18 @@ class App(ctk.CTk):
             return
 
         try:
-            # On ouvre ton PNG
             img = Image.open(png_path).convert("RGBA")
-            
-            # ÉTAPE CLÉ : On enlève les bordures vides si ton PNG en a
             bbox = img.getbbox()
             if bbox:
                 img = img.crop(bbox)
-            
-            # On crée une liste des tailles standards Windows
-            # La taille 256 est celle du bureau / La taille 32-48 est celle de la barre des tâches
             sizes = [256, 128, 64, 48, 32, 16]
             layers = []
-            
             for s in sizes:
-                # On redimensionne proprement pour chaque taille
                 resized = img.resize((s, s), Image.Resampling.LANCZOS)
                 layers.append(resized)
-            
-            # On sauvegarde l'ICO en incluant TOUTES ces couches
-            # C'est ce qui garantit que l'icône "match" le PNG partout
             layers[0].save(ico_path, format="ICO", append_images=layers[1:])
-            
-            print("ICO synchronisé avec le PNG (taille max).")
         except Exception as e:
             print(f"Erreur : {e}")
-
 
     def _show_main_window(self):
         try: self.splash.destroy()
@@ -318,6 +312,8 @@ class App(ctk.CTk):
         self.pages[page_name].grid(row=0, column=0, sticky="nsew")
         self._current_page = page_name
         self.topbar_view.set_title(page_name)
+        # OPTIMISATION: Mise à jour immédiate pour éviter le lag visuel
+        self.update_idletasks()
 
     def toggle_terminal(self) -> None:
         """Shows or hides the bottom terminal console."""
