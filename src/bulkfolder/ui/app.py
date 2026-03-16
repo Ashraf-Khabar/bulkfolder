@@ -1,5 +1,6 @@
 from __future__ import annotations
 import sys
+import os
 import customtkinter as ctk
 from pathlib import Path
 from PIL import Image, ImageTk
@@ -102,8 +103,18 @@ class App(ctk.CTk):
         # Liaison du redimensionnement intelligent (Smart Resize)
         self.bind("<Configure>", self._smart_resize)
 
-        self.logo_path = Path(__file__).resolve().parent.parent.parent / "assets" / "logo.png"
+        # --- CORRECTION DU CHEMIN DU LOGO (SUPPORT EXECUTABLE) ---
+        if getattr(sys, 'frozen', False):
+            # Si l'application est "gelée" (PyInstaller .exe)
+            # Le dossier 'assets' est à la racine de sys._MEIPASS selon votre release.yml
+            base_path = Path(sys._MEIPASS)
+            self.logo_path = base_path / "assets" / "logo.png"
+        else:
+            # Si on tourne en mode script local
+            self.logo_path = Path(__file__).resolve().parent.parent.parent / "assets" / "logo.png"
+        
         self._ensure_logo_exists(self.logo_path)
+        # --------------------------------------------------------
 
         self.ui_state = UIState()
         self.last_plan = None
@@ -175,16 +186,24 @@ class App(ctk.CTk):
 
     def _ensure_logo_exists(self, png_path: Path):
         """ Génère et charge l'icône .ico. """
-        if not png_path.exists(): return
+        if not png_path.exists(): 
+            self.log(f"Logo not found at {png_path}", level="WARNING")
+            return
+        
         ico_path = png_path.with_suffix(".ico")
         try:
-            img = Image.open(png_path).convert("RGBA")
-            bbox = img.getbbox()
-            if bbox: img = img.crop(bbox)
-            layers = [img.resize((s, s), Image.Resampling.LANCZOS) for s in [256, 128, 64, 48, 32, 16]]
-            layers[0].save(ico_path, format="ICO", append_images=layers[1:])
+            # Si on est en mode frozen, on essaie d'utiliser l'ico déjà présent
+            # sinon on le génère
+            if not ico_path.exists():
+                img = Image.open(png_path).convert("RGBA")
+                bbox = img.getbbox()
+                if bbox: img = img.crop(bbox)
+                layers = [img.resize((s, s), Image.Resampling.LANCZOS) for s in [256, 128, 64, 48, 32, 16]]
+                layers[0].save(ico_path, format="ICO", append_images=layers[1:])
+            
             self.iconbitmap(str(ico_path))
-        except Exception: pass
+        except Exception as e:
+            self.log(f"Failed to set icon: {e}", level="ERROR")
 
     def _show_main_window(self):
         try: self.splash.destroy()
