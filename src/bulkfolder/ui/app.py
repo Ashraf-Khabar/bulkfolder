@@ -35,9 +35,6 @@ from .views.about_page import AboutPage
 
 
 class SplashScreen(ctk.CTkToplevel):
-    """
-    A temporary loading screen that appears before the main application window is ready.
-    """
     def __init__(self, master, logo_path):
         super().__init__(master)
         self.overrideredirect(True)
@@ -71,11 +68,8 @@ class SplashScreen(ctk.CTkToplevel):
 
 
 class App(ctk.CTk):
-    """
-    The main application window with multithreaded operations support.
-    """
     def __init__(self):
-        # OPTIMISATION: DPI Awareness pour éviter le lag lors du changement d'écran
+        # OPTIMISATION 1: Force le mode de rendu haute performance sur Windows
         try:
             if sys.platform.startswith("win"):
                 import ctypes
@@ -86,6 +80,9 @@ class App(ctk.CTk):
         super().__init__()
         self.withdraw()
         
+        # Variable pour bloquer le rendu intensif durant le mouvement
+        self._resize_after_id = None
+
         self.settings: AppSettings = load_settings()
 
         ctk.set_appearance_mode("dark")
@@ -102,6 +99,9 @@ class App(ctk.CTk):
         self.geometry("1240x800")
         self.minsize(1020, 700)
         self.configure(fg_color=DR_BG)
+
+        # OPTIMISATION 2: Capture l'événement de redimensionnement
+        self.bind("<Configure>", self._smart_resize)
 
         self.logo_path = Path(__file__).resolve().parent.parent.parent / "assets" / "logo.png"
         self._ensure_logo_exists(self.logo_path)
@@ -145,7 +145,6 @@ class App(ctk.CTk):
         self.content_area.grid_rowconfigure(1, weight=1) 
         self.content_area.grid_rowconfigure(2, weight=0) 
 
-        # The Topbar handles status and loading animations
         self.topbar_view = TopbarView(self.content_area, on_toggle_sidebar=self.toggle_terminal)
         self.topbar_view.grid(row=0, column=0, sticky="ew", padx=18, pady=(18, 8))
 
@@ -154,12 +153,10 @@ class App(ctk.CTk):
         self.page_container.grid_columnconfigure(0, weight=1)
         self.page_container.grid_rowconfigure(0, weight=1)
 
-        # Global Terminal
         self.logs_view = LogsView(self.content_area, on_close=self.toggle_terminal)
         self.logs_view.grid(row=2, column=0, sticky="ew", padx=18, pady=(0, 18))
         self._terminal_visible = True
         
-        # Link log view to state for global access
         self.ui_state.log_view = self.logs_view
 
         self.pages: dict[str, ctk.CTkFrame] = {}
@@ -184,26 +181,34 @@ class App(ctk.CTk):
         
         self.after(2000, self._show_main_window)
 
+    def _smart_resize(self, event):
+        """Évite le recalcul saccadé en temps réel."""
+        if event.widget == self:
+            if self._resize_after_id:
+                self.after_cancel(self._resize_after_id)
+            # Attend 50ms de stabilité avant de rafraîchir
+            self._resize_after_id = self.after(50, self._do_refresh)
+
+    def _do_refresh(self):
+        """Effectue le rendu final de manière fluide."""
+        self.update_idletasks()
+        self._resize_after_id = None
+
     @staticmethod
     def _ensure_logo_exists(png_path: Path):
         ico_path = png_path.with_suffix(".ico")
-        
-        if not png_path.exists():
-            return
-
+        if not png_path.exists(): return
         try:
             img = Image.open(png_path).convert("RGBA")
             bbox = img.getbbox()
-            if bbox:
-                img = img.crop(bbox)
+            if bbox: img = img.crop(bbox)
             sizes = [256, 128, 64, 48, 32, 16]
             layers = []
             for s in sizes:
                 resized = img.resize((s, s), Image.Resampling.LANCZOS)
                 layers.append(resized)
             layers[0].save(ico_path, format="ICO", append_images=layers[1:])
-        except Exception as e:
-            print(f"Erreur : {e}")
+        except Exception: pass
 
     def _show_main_window(self):
         try: self.splash.destroy()
@@ -312,11 +317,9 @@ class App(ctk.CTk):
         self.pages[page_name].grid(row=0, column=0, sticky="nsew")
         self._current_page = page_name
         self.topbar_view.set_title(page_name)
-        # OPTIMISATION: Mise à jour immédiate pour éviter le lag visuel
         self.update_idletasks()
 
     def toggle_terminal(self) -> None:
-        """Shows or hides the bottom terminal console."""
         if self._terminal_visible:
             self.logs_view.grid_forget()
             self._terminal_visible = False
@@ -325,13 +328,9 @@ class App(ctk.CTk):
             self._terminal_visible = True
 
     def set_status(self, s: str) -> None:
-        """Updates the status in the top bar."""
         self.topbar_view.set_status(s)
 
     def log(self, s: str, level: str = "INFO") -> None:
-        """
-        Global logging method. Thread-safe log through UIState.
-        """
         self.ui_state.log(s, level=level)
 
     @staticmethod
